@@ -23,8 +23,8 @@
 - [x] cache matched IDs, summaries and artwork paths
 - [x] retain usable local records when metadata lookup fails
 - [x] load poster artwork with memory/disk caching
-- [ ] fetch episode-specific metadata after series matching
-- [ ] manual "fix match" flow
+- [x] fetch episode-specific metadata after series matching
+- [x] manual "fix match" flow
 - [ ] add approved TMDB logo to About/Credits before public release
 
 ## M2 — media-centre UX
