@@ -6,7 +6,9 @@ A deliberately small Android media-centre app focused on local video libraries.
 
 The current working slice provides:
 
-- Android Storage Access Framework folder selection, including supported USB/external drives;
+- Android Storage Access Framework folder selection where a system picker is available;
+- Android TV fallback using MediaStore storage-volume discovery when no folder picker exists;
+- persisted SAF folders and selected MediaStore volumes, including supported USB/external drives;
 - persisted access to selected folders;
 - recursive indexing of common video formats;
 - movie and TV-episode filename recognition, including movie years;
