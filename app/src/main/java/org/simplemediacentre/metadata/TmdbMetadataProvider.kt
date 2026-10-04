@@ -10,13 +10,18 @@ import java.nio.charset.StandardCharsets
 class TmdbMetadataProvider(
     private val bearerToken: String,
 ) : MetadataProvider {
-    override fun match(item: MediaRecord): MediaMetadata? {
-        if (bearerToken.isBlank() || item.kind == MediaRecord.Kind.UNKNOWN) return null
+    override fun match(item: MediaRecord): MediaMetadata? =
+        search(item, limit = 1).firstOrNull()
+
+    override fun search(item: MediaRecord, limit: Int): List<MediaMetadata> {
+        if (bearerToken.isBlank() || item.kind == MediaRecord.Kind.UNKNOWN || limit <= 0) {
+            return emptyList()
+        }
 
         val endpoint = when (item.kind) {
             MediaRecord.Kind.MOVIE -> "movie"
             MediaRecord.Kind.TV_EPISODE -> "tv"
-            MediaRecord.Kind.UNKNOWN -> return null
+            MediaRecord.Kind.UNKNOWN -> return emptyList()
         }
 
         val query = URLEncoder.encode(item.title, StandardCharsets.UTF_8.name())
@@ -26,14 +31,63 @@ class TmdbMetadataProvider(
             else -> "&first_air_date_year=" + item.year
         }
 
-        val url = URL(
+        val response = getJson(
             "https://api.themoviedb.org/3/search/" + endpoint +
                 "?query=" + query +
                 "&include_adult=false&language=en-AU&page=1" +
                 yearParameter
-        )
+        ) ?: return emptyList()
 
-        val connection = url.openConnection() as HttpURLConnection
+        val results = response.optJSONArray("results") ?: return emptyList()
+        val titleKey = if (item.kind == MediaRecord.Kind.TV_EPISODE) "name" else "title"
+
+        return buildList {
+            for (index in 0 until minOf(results.length(), limit)) {
+                val result = results.optJSONObject(index) ?: continue
+                val title = result.optString(titleKey).takeIf { it.isNotBlank() } ?: continue
+                val id = result.optInt("id")
+                if (id <= 0) continue
+
+                add(
+                    MediaMetadata(
+                        id = id,
+                        title = title,
+                        overview = result.optNullableString("overview"),
+                        posterPath = result.optNullableString("poster_path"),
+                        backdropPath = result.optNullableString("backdrop_path"),
+                    )
+                )
+            }
+        }
+    }
+
+    override fun episodeDetails(
+        seriesId: Int,
+        season: Int,
+        episode: Int,
+    ): EpisodeMetadata? {
+        if (bearerToken.isBlank() || seriesId <= 0 || season < 0 || episode <= 0) return null
+
+        val result = getJson(
+            "https://api.themoviedb.org/3/tv/" + seriesId +
+                "/season/" + season +
+                "/episode/" + episode +
+                "?language=en-AU"
+        ) ?: return null
+
+        val id = result.optInt("id")
+        val title = result.optString("name").takeIf { it.isNotBlank() } ?: return null
+        if (id <= 0) return null
+
+        return EpisodeMetadata(
+            id = id,
+            title = title,
+            overview = result.optNullableString("overview"),
+        )
+    }
+
+    private fun getJson(rawUrl: String): JSONObject? {
+        val connection = URL(rawUrl).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 8_000
@@ -44,32 +98,12 @@ class TmdbMetadataProvider(
             if (connection.responseCode !in 200..299) return null
 
             val response = connection.inputStream.bufferedReader().use { it.readText() }
-            parseFirstResult(JSONObject(response), item.kind)
+            JSONObject(response)
         } catch (_: Exception) {
             null
         } finally {
             connection.disconnect()
         }
-    }
-
-    private fun parseFirstResult(
-        response: JSONObject,
-        kind: MediaRecord.Kind,
-    ): MediaMetadata? {
-        val results = response.optJSONArray("results") ?: return null
-        if (results.length() == 0) return null
-
-        val result = results.optJSONObject(0) ?: return null
-        val titleKey = if (kind == MediaRecord.Kind.TV_EPISODE) "name" else "title"
-        val title = result.optString(titleKey).takeIf { it.isNotBlank() } ?: return null
-
-        return MediaMetadata(
-            id = result.optInt("id"),
-            title = title,
-            overview = result.optNullableString("overview"),
-            posterPath = result.optNullableString("poster_path"),
-            backdropPath = result.optNullableString("backdrop_path"),
-        )
     }
 
     private fun JSONObject.optNullableString(key: String): String? =
