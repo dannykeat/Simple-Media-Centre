@@ -44,6 +44,7 @@ Before any public release using TMDB data/images, add an approved TMDB logo to t
 ## Build requirements
 
 - Android Studio compatible with AGP 9.4
+- Built-in Kotlin compiler 2.4.10, pinned to match Coil 3.6.3 dependencies
 - JDK 17
 - Gradle 9.6+
 - Android SDK API 37.0

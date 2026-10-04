@@ -12,6 +12,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import coil3.load
+import coil3.request.crossfade
 import org.simplemediacentre.model.MediaRecord
 
 class MediaLibraryAdapter(
