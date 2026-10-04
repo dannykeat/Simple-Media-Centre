@@ -327,7 +327,10 @@ class MainActivity : Activity() {
                 LibraryCard(
                     key = item.uri,
                     title = item.displayTitle,
-                    subtitle = item.year?.toString().orEmpty(),
+                    subtitle = listOfNotNull(
+                        item.year?.toString(),
+                        if (store.isWatched(item.uri)) "Watched" else null,
+                    ).joinToString(" • "),
                     posterPath = item.posterPath,
                     items = listOf(item),
                 )
@@ -354,11 +357,18 @@ class MainActivity : Activity() {
                     ""
                 }
 
+                val watchedCount = ordered.count { store.isWatched(it.uri) }
+                val watchedText = if (watchedCount > 0) {
+                    " • " + watchedCount + "/" + ordered.size + " watched"
+                } else {
+                    ""
+                }
+
                 LibraryCard(
                     key = representative.metadataId?.toString() ?: representative.title,
                     title = representative.metadataTitle ?: representative.title,
                     subtitle = ordered.size.toString() + " episode" +
-                        (if (ordered.size == 1) "" else "s") + seasonText,
+                        (if (ordered.size == 1) "" else "s") + seasonText + watchedText,
                     posterPath = representative.posterPath,
                     items = ordered,
                 )
@@ -478,24 +488,46 @@ class MainActivity : Activity() {
         if (card.items.size == 1) {
             val item = card.items.first()
             val watched = store.isWatched(item.uri)
-            builder.setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
-                store.setWatched(item.uri, !watched)
-                renderLibrary()
+            if (store.tmdbToken().isNotBlank()) {
+                builder.setNeutralButton("Actions") { _, _ ->
+                    showSingleItemActions(card, watched)
+                }
+            } else {
+                builder.setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
+                    store.setWatched(item.uri, !watched)
+                    renderLibrary()
+                }
             }
         } else if (store.tmdbToken().isNotBlank()) {
             builder.setNeutralButton("Fix match") { _, _ -> promptFixMatch(card) }
         }
 
-        val dialog = builder.create()
-        dialog.setOnShowListener {
-            if (card.items.size == 1 && store.tmdbToken().isNotBlank()) {
-                dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Fix match") { _, _ ->
-                    dialog.dismiss()
-                    promptFixMatch(card)
+        builder.show()
+    }
+
+    private fun showSingleItemActions(
+        card: LibraryCard,
+        watched: Boolean,
+    ) {
+        val labels = arrayOf(
+            if (watched) "Mark unwatched" else "Mark watched",
+            "Fix match",
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(card.title)
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> {
+                        val item = card.items.first()
+                        store.setWatched(item.uri, !watched)
+                        renderLibrary()
+                    }
+                    1 -> promptFixMatch(card)
                 }
             }
-        }
-        dialog.show()
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun promptFixMatch(card: LibraryCard) {
