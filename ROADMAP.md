@@ -35,7 +35,7 @@
 - [x] Recently Added view
 - [ ] search and sort
 - [x] watched/unwatched state
-- [ ] subtitle and audio-track selection
+- [x] subtitle and audio-track selection
 - [ ] multiple media sources and source management
 - [ ] background/resumable rescans for large libraries
 - [ ] visual polish and responsive phone/tablet/TV sizing
