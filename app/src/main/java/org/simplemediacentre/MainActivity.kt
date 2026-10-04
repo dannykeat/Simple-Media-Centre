@@ -17,6 +17,7 @@ import android.widget.Toast
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.MediaScanner
 import org.simplemediacentre.metadata.LibraryEnricher
+import org.simplemediacentre.metadata.MediaMetadata
 import org.simplemediacentre.metadata.TmdbMetadataProvider
 import org.simplemediacentre.model.MediaRecord
 
@@ -270,6 +271,9 @@ class MainActivity : Activity() {
             overview = previous.overview,
             posterPath = previous.posterPath,
             backdropPath = previous.backdropPath,
+            episodeMetadataId = previous.episodeMetadataId,
+            episodeTitle = previous.episodeTitle,
+            episodeOverview = previous.episodeOverview,
         )
     }
 
@@ -382,14 +386,27 @@ class MainActivity : Activity() {
         val labels = card.items.map { episode ->
             val position = store.playbackPosition(episode.uri)
             val resume = if (position > 30_000L) " • Resume " + formatPosition(position) else ""
-            episode.displayTitle + resume
+            episode.episodeDisplayTitle + resume
         }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle(card.title)
             .setItems(labels) { _, which ->
-                play(card.items[which])
+                showEpisodeDetails(card.items[which])
             }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun showEpisodeDetails(episode: MediaRecord) {
+        val summary = episode.episodeOverview?.takeIf { it.isNotBlank() }
+            ?: episode.overview?.takeIf { it.isNotBlank() }
+            ?: "No online description is available for this episode."
+
+        AlertDialog.Builder(this)
+            .setTitle(episode.episodeDisplayTitle)
+            .setMessage(summary)
+            .setPositiveButton("Play") { _, _ -> play(episode) }
             .setNegativeButton("Close", null)
             .show()
     }
@@ -407,14 +424,132 @@ class MainActivity : Activity() {
             )
         }
 
-        AlertDialog.Builder(this)
+        val builder = AlertDialog.Builder(this)
             .setTitle(card.title)
             .setMessage(summary)
             .setPositiveButton(if (card.items.size == 1) "Play" else "Episodes") { _, _ ->
                 openCard(card)
             }
             .setNegativeButton("Close", null)
+
+        if (store.tmdbToken().isNotBlank()) {
+            builder.setNeutralButton("Fix match") { _, _ ->
+                promptFixMatch(card)
+            }
+        }
+
+        builder.show()
+    }
+
+    private fun promptFixMatch(card: LibraryCard) {
+        val representative = card.items.first()
+        val input = EditText(this).apply {
+            setText(representative.title)
+            selectAll()
+            hint = "Search title"
+            isSingleLine = true
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Fix match")
+            .setMessage("Search TMDB and choose the correct title.")
+            .setView(input)
+            .setPositiveButton("Search") { _, _ ->
+                searchForMatch(card, input.text.toString())
+            }
+            .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun searchForMatch(card: LibraryCard, query: String) {
+        val token = store.tmdbToken()
+        val representative = card.items.first()
+        if (token.isBlank() || query.isBlank()) return
+
+        progressView.visibility = View.VISIBLE
+        statusView.text = "Searching TMDB…"
+
+        Thread {
+            val searchItem = representative.copy(
+                title = query.trim(),
+                year = null,
+                metadataId = null,
+                metadataTitle = null,
+            )
+            val candidates = TmdbMetadataProvider(token).search(searchItem, limit = 8)
+
+            runOnUiThread {
+                progressView.visibility = View.GONE
+                renderLibrary()
+
+                if (candidates.isEmpty()) {
+                    Toast.makeText(this, "No TMDB matches found.", Toast.LENGTH_LONG).show()
+                } else {
+                    showMatchCandidates(card, candidates)
+                }
+            }
+        }.start()
+    }
+
+    private fun showMatchCandidates(
+        card: LibraryCard,
+        candidates: List<MediaMetadata>,
+    ) {
+        val labels = candidates.map { candidate ->
+            if (candidate.overview.isNullOrBlank()) {
+                candidate.title
+            } else {
+                candidate.title + " — " + candidate.overview.take(90)
+            }
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Choose match")
+            .setItems(labels) { _, which ->
+                applyManualMatch(card, candidates[which])
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun applyManualMatch(
+        card: LibraryCard,
+        candidate: MediaMetadata,
+    ) {
+        val token = store.tmdbToken()
+        val affectedUris = card.items.map { it.uri }.toSet()
+        val provider = TmdbMetadataProvider(token)
+
+        progressView.visibility = View.VISIBLE
+        statusView.text = "Applying TMDB match…"
+
+        Thread {
+            val changed = library.map { item ->
+                if (item.uri !in affectedUris) {
+                    item
+                } else {
+                    item.copy(
+                        metadataId = candidate.id,
+                        metadataTitle = candidate.title,
+                        overview = candidate.overview,
+                        posterPath = candidate.posterPath,
+                        backdropPath = candidate.backdropPath,
+                        episodeMetadataId = null,
+                        episodeTitle = null,
+                        episodeOverview = null,
+                    )
+                }
+            }
+
+            val enriched = LibraryEnricher(provider).enrich(changed)
+            store.saveLibrary(enriched)
+
+            runOnUiThread {
+                library = enriched
+                progressView.visibility = View.GONE
+                renderLibrary()
+            }
+        }.start()
     }
 
     private fun play(item: MediaRecord) {
