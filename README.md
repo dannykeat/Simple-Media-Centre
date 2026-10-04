@@ -2,31 +2,46 @@
 
 A deliberately small Android media-centre app focused on local video libraries.
 
-## Goal
+## Current MVP
 
-Provide the useful core of a Kodi-style video library without Kodi's add-on/PVR/music/skin complexity:
+The first working slice provides:
 
-- choose one or more local or USB-storage folders using Android's Storage Access Framework;
-- recursively index common video files;
-- recognise movie and TV-episode filenames;
-- present a simple remote- and touch-friendly library;
-- play files with AndroidX Media3;
-- retain library data and playback progress;
-- later enrich matches with online movie/TV metadata and artwork.
+- Android Storage Access Framework folder selection, including supported USB/external drives;
+- persisted access to selected folders;
+- recursive indexing of common video formats;
+- movie and TV-episode filename recognition;
+- a simple touch/remote-friendly library list;
+- Media3/ExoPlayer playback;
+- per-file resume position;
+- rescanning without requiring raw-storage permissions.
 
-## Current status
+Online metadata and artwork are intentionally the next layer. Local scanning and playback do not depend on an online service.
 
-Initial Android MVP foundation is being built.
+## Architecture
 
-## Architecture principles
+- **Native Android/Kotlin**
+- **Storage Access Framework** for user-selected folders rather than raw filesystem paths
+- **Media3 1.11.1** for playback
+- lightweight local persistence using app preferences/JSON for the MVP
+- isolated filename parsing so metadata matching can be added without changing storage or playback
 
-- Native Android/Kotlin.
-- Storage Access Framework instead of fragile raw filesystem assumptions.
-- Media3/ExoPlayer for playback.
-- Small, testable filename parsing and scanning components.
-- Online metadata is an enrichment layer; local playback must continue to work without it.
-- No Kodi-compatible plug-ins, skins, PVR, music library, server, or transcoding.
+The app deliberately does not aim to reproduce Kodi plug-ins, PVR, music, skins, transcoding, or network-server features.
 
-## Development
+## Build requirements
 
-The project targets current Android tooling. JDK 17 and Gradle 9.6+ are required when building outside Android Studio.
+- Android Studio Rabbit 1 / another IDE compatible with AGP 9.4
+- JDK 17
+- Gradle 9.6+
+- Android SDK API 37
+
+The repository currently does not include Gradle wrapper binaries. CI installs Gradle 9.6 explicitly.
+
+From a configured command line:
+
+```bash
+gradle test lint assembleDebug
+```
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md).
