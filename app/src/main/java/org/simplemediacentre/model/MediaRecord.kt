@@ -14,6 +14,9 @@ data class MediaRecord(
     val overview: String? = null,
     val posterPath: String? = null,
     val backdropPath: String? = null,
+    val episodeMetadataId: Int? = null,
+    val episodeTitle: String? = null,
+    val episodeOverview: String? = null,
 ) {
     enum class Kind {
         MOVIE,
@@ -30,5 +33,14 @@ data class MediaRecord(
             } else {
                 base
             }
+        }
+
+    val episodeDisplayTitle: String
+        get() = if (kind == Kind.TV_EPISODE && season != null && episode != null) {
+            "S" + season.toString().padStart(2, '0') +
+                "E" + episode.toString().padStart(2, '0') +
+                (episodeTitle?.takeIf { it.isNotBlank() }?.let { " • " + it } ?: "")
+        } else {
+            displayTitle
         }
 }
