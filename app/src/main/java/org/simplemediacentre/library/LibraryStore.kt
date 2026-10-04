@@ -17,6 +17,14 @@ class LibraryStore(context: Context) {
         preferences.edit().putStringSet(KEY_ROOTS, updated).apply()
     }
 
+    fun mediaStoreVolumes(): Set<String> =
+        preferences.getStringSet(KEY_MEDIASTORE_VOLUMES, emptySet())?.toSet().orEmpty()
+
+    fun addMediaStoreVolume(volumeName: String) {
+        val updated = mediaStoreVolumes().toMutableSet().apply { add(volumeName) }
+        preferences.edit().putStringSet(KEY_MEDIASTORE_VOLUMES, updated).apply()
+    }
+
     fun tmdbToken(): String =
         preferences.getString(KEY_TMDB_TOKEN, "").orEmpty()
 
@@ -119,6 +127,7 @@ class LibraryStore(context: Context) {
         const val KEY_ROOTS = "roots"
         const val KEY_LIBRARY = "library"
         const val KEY_TMDB_TOKEN = "tmdb_token"
+        const val KEY_MEDIASTORE_VOLUMES = "mediastore_volumes"
         const val KEY_POSITION_PREFIX = "position:"
         const val KEY_WATCHED_PREFIX = "watched:"
     }
