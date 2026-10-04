@@ -46,6 +46,9 @@ class LibraryStore(context: Context) {
                             overview = item.optStringOrNull("overview"),
                             posterPath = item.optStringOrNull("posterPath"),
                             backdropPath = item.optStringOrNull("backdropPath"),
+                            episodeMetadataId = item.optIntOrNull("episodeMetadataId"),
+                            episodeTitle = item.optStringOrNull("episodeTitle"),
+                            episodeOverview = item.optStringOrNull("episodeOverview"),
                         )
                     )
                 }
@@ -71,6 +74,9 @@ class LibraryStore(context: Context) {
                     .putNullable("overview", item.overview)
                     .putNullable("posterPath", item.posterPath)
                     .putNullable("backdropPath", item.backdropPath)
+                    .putNullable("episodeMetadataId", item.episodeMetadataId)
+                    .putNullable("episodeTitle", item.episodeTitle)
+                    .putNullable("episodeOverview", item.episodeOverview)
             )
         }
         preferences.edit().putString(KEY_LIBRARY, array.toString()).apply()
