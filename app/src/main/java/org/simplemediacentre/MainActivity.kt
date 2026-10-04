@@ -349,7 +349,7 @@ class MainActivity : Activity() {
                     key = representative.metadataId?.toString() ?: representative.title,
                     title = representative.metadataTitle ?: representative.title,
                     subtitle = ordered.size.toString() + " episode" +
-                        if (ordered.size == 1) "" else "s" + seasonText,
+                        (if (ordered.size == 1) "" else "s") + seasonText,
                     posterPath = representative.posterPath,
                     items = ordered,
                 )
