@@ -26,6 +26,7 @@ class MainActivity : Activity() {
         MOVIES,
         TV,
         CONTINUE,
+        RECENT,
     }
 
     private lateinit var store: LibraryStore
@@ -69,6 +70,7 @@ class MainActivity : Activity() {
                 addView(sectionButton("Movies", Section.MOVIES))
                 addView(sectionButton("TV Shows", Section.TV))
                 addView(sectionButton("Continue", Section.CONTINUE))
+                addView(sectionButton("Recent", Section.RECENT))
             }
             addView(sections)
 
@@ -232,8 +234,9 @@ class MainActivity : Activity() {
 
         Thread {
             val previous = store.loadLibrary().associateBy { it.uri }
+            val now = System.currentTimeMillis()
             var scanned = MediaScanner(this).scan(roots).map { item ->
-                carryCachedMetadata(item, previous[item.uri])
+                carryCachedMetadata(item, previous[item.uri], now)
             }
 
             val token = store.tmdbToken()
@@ -257,15 +260,18 @@ class MainActivity : Activity() {
     private fun carryCachedMetadata(
         scanned: MediaRecord,
         previous: MediaRecord?,
+        now: Long,
     ): MediaRecord {
-        if (previous == null ||
-            previous.fileName != scanned.fileName ||
-            previous.modifiedAt != scanned.modifiedAt
-        ) {
-            return scanned
+        if (previous == null) {
+            return scanned.copy(addedAt = now)
+        }
+
+        if (previous.fileName != scanned.fileName || previous.modifiedAt != scanned.modifiedAt) {
+            return scanned.copy(addedAt = previous.addedAt.takeIf { it > 0L } ?: now)
         }
 
         return scanned.copy(
+            addedAt = previous.addedAt.takeIf { it > 0L } ?: now,
             metadataId = previous.metadataId,
             metadataTitle = previous.metadataTitle,
             overview = previous.overview,
@@ -282,6 +288,7 @@ class MainActivity : Activity() {
             Section.MOVIES -> movieCards()
             Section.TV -> tvCards()
             Section.CONTINUE -> continueCards()
+            Section.RECENT -> recentCards()
         }
         adapter.submitItems(visibleCards)
 
@@ -295,6 +302,7 @@ class MainActivity : Activity() {
                     Section.MOVIES -> "No movies found."
                     Section.TV -> "No TV episodes found."
                     Section.CONTINUE -> "Nothing to continue watching."
+                    Section.RECENT -> "No recently added videos yet."
                 }
             else -> {
                 val matched = library.count { it.metadataId != null }
@@ -302,6 +310,7 @@ class MainActivity : Activity() {
                     Section.MOVIES -> "movie"
                     Section.TV -> "show"
                     Section.CONTINUE -> "video"
+                    Section.RECENT -> "recent item"
                 }
                 val suffix = if (visibleCards.size == 1) "" else "s"
                 visibleCards.size.toString() + " " + label + suffix +
@@ -356,11 +365,35 @@ class MainActivity : Activity() {
             }
             .sortedBy { it.title.lowercase() }
 
+    private fun recentCards(): List<LibraryCard> =
+        library
+            .filter { it.addedAt > 0L }
+            .sortedByDescending { it.addedAt }
+            .take(30)
+            .map { item ->
+                LibraryCard(
+                    key = "recent:" + item.uri,
+                    title = item.displayTitle,
+                    subtitle = recentSubtitle(item),
+                    posterPath = item.posterPath,
+                    items = listOf(item),
+                )
+            }
+
+    private fun recentSubtitle(item: MediaRecord): String {
+        val watched = if (store.isWatched(item.uri)) "Watched" else "New"
+        return if (item.kind == MediaRecord.Kind.TV_EPISODE) {
+            item.episodeDisplayTitle + " • " + watched
+        } else {
+            watched
+        }
+    }
+
     private fun continueCards(): List<LibraryCard> =
         library
             .mapNotNull { item ->
                 val position = store.playbackPosition(item.uri)
-                if (position <= 30_000L) {
+                if (position <= 30_000L || store.isWatched(item.uri)) {
                     null
                 } else {
                     LibraryCard(
@@ -385,8 +418,13 @@ class MainActivity : Activity() {
     private fun showEpisodePicker(card: LibraryCard) {
         val labels = card.items.map { episode ->
             val position = store.playbackPosition(episode.uri)
-            val resume = if (position > 30_000L) " • Resume " + formatPosition(position) else ""
-            episode.episodeDisplayTitle + resume
+            val resume = if (position > 30_000L && !store.isWatched(episode.uri)) {
+                " • Resume " + formatPosition(position)
+            } else {
+                ""
+            }
+            val watched = if (store.isWatched(episode.uri)) " • Watched" else ""
+            episode.episodeDisplayTitle + resume + watched
         }.toTypedArray()
 
         AlertDialog.Builder(this)
@@ -403,10 +441,15 @@ class MainActivity : Activity() {
             ?: episode.overview?.takeIf { it.isNotBlank() }
             ?: "No online description is available for this episode."
 
+        val watched = store.isWatched(episode.uri)
         AlertDialog.Builder(this)
             .setTitle(episode.episodeDisplayTitle)
             .setMessage(summary)
             .setPositiveButton("Play") { _, _ -> play(episode) }
+            .setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
+                store.setWatched(episode.uri, !watched)
+                renderLibrary()
+            }
             .setNegativeButton("Close", null)
             .show()
     }
@@ -432,13 +475,27 @@ class MainActivity : Activity() {
             }
             .setNegativeButton("Close", null)
 
-        if (store.tmdbToken().isNotBlank()) {
-            builder.setNeutralButton("Fix match") { _, _ ->
-                promptFixMatch(card)
+        if (card.items.size == 1) {
+            val item = card.items.first()
+            val watched = store.isWatched(item.uri)
+            builder.setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
+                store.setWatched(item.uri, !watched)
+                renderLibrary()
             }
+        } else if (store.tmdbToken().isNotBlank()) {
+            builder.setNeutralButton("Fix match") { _, _ -> promptFixMatch(card) }
         }
 
-        builder.show()
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            if (card.items.size == 1 && store.tmdbToken().isNotBlank()) {
+                dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Fix match") { _, _ ->
+                    dialog.dismiss()
+                    promptFixMatch(card)
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun promptFixMatch(card: LibraryCard) {
