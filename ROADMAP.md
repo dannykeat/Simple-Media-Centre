@@ -5,6 +5,7 @@
 - [x] Android application skeleton
 - [x] select SAF media folders
 - [x] persist folder grants
+- [x] Android TV MediaStore fallback when no system folder picker exists
 - [x] recursively scan supported video files
 - [x] basic movie/TV filename parsing
 - [x] library list
