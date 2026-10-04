@@ -68,9 +68,12 @@ class PlayerActivity : Activity() {
         player?.let { currentPlayer ->
             val duration = currentPlayer.duration
             val current = currentPlayer.currentPosition
-            val positionToSave =
-                if (duration > 0 && current >= duration - 60_000L) 0L else current
+            val finished = duration > 0 && current >= duration - 60_000L
+            val positionToSave = if (finished) 0L else current
             store.savePlaybackPosition(mediaUri, positionToSave)
+            if (finished) {
+                store.setWatched(mediaUri, true)
+            }
         }
         super.onStop()
     }
