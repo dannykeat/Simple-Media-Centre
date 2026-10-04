@@ -11,17 +11,21 @@
 - [x] Media3 playback
 - [x] resume position
 - [x] parser unit tests
-- [ ] validate build in CI and on a real Android/Android TV device
+- [ ] validate build in CI
+- [ ] validate on a real Android/Android TV device
 
 ## M1 — metadata
 
-- [ ] introduce metadata-provider interface
-- [ ] TMDB configuration without committing API credentials
-- [ ] movie search/matching
-- [ ] TV series + season/episode matching
-- [ ] poster/backdrop caching
+- [x] introduce metadata-provider interface
+- [x] TMDB token configuration without committing API credentials
+- [x] movie search/matching
+- [x] TV series search/matching
+- [x] cache matched IDs, summaries and artwork paths
+- [x] retain usable local records when metadata lookup fails
+- [ ] fetch episode-specific metadata after series matching
+- [ ] poster/backdrop image loading and disk caching
 - [ ] manual "fix match" flow
-- [ ] retain usable local records when metadata lookup fails
+- [ ] add approved TMDB logo to About/Credits before public release
 
 ## M2 — media-centre UX
 

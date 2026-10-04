@@ -15,6 +15,7 @@ object FilenameParser {
     data class Parsed(
         val title: String,
         val kind: MediaRecord.Kind,
+        val year: Int? = null,
         val season: Int? = null,
         val episode: Int? = null,
     )
@@ -39,6 +40,7 @@ object FilenameParser {
         return Parsed(
             title = title.ifBlank { stem },
             kind = if (title.isBlank()) MediaRecord.Kind.UNKNOWN else MediaRecord.Kind.MOVIE,
+            year = movieMatch?.groupValues?.get(2)?.toIntOrNull(),
         )
     }
 

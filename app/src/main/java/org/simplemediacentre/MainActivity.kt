@@ -1,11 +1,14 @@
 package org.simplemediacentre
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ProgressBar
@@ -13,6 +16,8 @@ import android.widget.TextView
 import android.widget.Toast
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.MediaScanner
+import org.simplemediacentre.metadata.LibraryEnricher
+import org.simplemediacentre.metadata.TmdbMetadataProvider
 import org.simplemediacentre.model.MediaRecord
 
 class MainActivity : Activity() {
@@ -63,6 +68,16 @@ class MainActivity : Activity() {
                 addView(Button(context).apply {
                     text = "Rescan"
                     setOnClickListener { scanLibrary() }
+                })
+
+                addView(Button(context).apply {
+                    text = "TMDB setup"
+                    setOnClickListener { showTmdbSetup() }
+                })
+
+                addView(Button(context).apply {
+                    text = "About"
+                    setOnClickListener { showAbout() }
                 })
             }
             addView(actions)
@@ -129,6 +144,37 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun showTmdbSetup() {
+        val input = EditText(this).apply {
+            hint = "TMDB API Read Access Token"
+            setText(store.tmdbToken())
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("TMDB metadata")
+            .setMessage("Enter your TMDB API Read Access Token. Leave it blank to disable online metadata.")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                store.saveTmdbToken(input.text.toString())
+                scanLibrary()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAbout() {
+        AlertDialog.Builder(this)
+            .setTitle("Simple Media Centre")
+            .setMessage(
+                "Local-first video library and player.\n\n" +
+                    "This product uses the TMDB API but is not endorsed or certified by TMDB."
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
     private fun scanLibrary() {
         val roots = store.roots()
         if (roots.isEmpty()) {
@@ -141,7 +187,19 @@ class MainActivity : Activity() {
         statusView.text = "Scanning " + roots.size + " media source" + suffix + "…"
 
         Thread {
-            val scanned = MediaScanner(this).scan(roots)
+            val previous = store.loadLibrary().associateBy { it.uri }
+            var scanned = MediaScanner(this).scan(roots).map { item ->
+                carryCachedMetadata(item, previous[item.uri])
+            }
+
+            val token = store.tmdbToken()
+            if (token.isNotBlank()) {
+                runOnUiThread {
+                    statusView.text = "Matching unmatched videos with TMDB…"
+                }
+                scanned = LibraryEnricher(TmdbMetadataProvider(token)).enrich(scanned)
+            }
+
             store.saveLibrary(scanned)
 
             runOnUiThread {
@@ -152,6 +210,26 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun carryCachedMetadata(
+        scanned: MediaRecord,
+        previous: MediaRecord?,
+    ): MediaRecord {
+        if (previous == null ||
+            previous.fileName != scanned.fileName ||
+            previous.modifiedAt != scanned.modifiedAt
+        ) {
+            return scanned
+        }
+
+        return scanned.copy(
+            metadataId = previous.metadataId,
+            metadataTitle = previous.metadataTitle,
+            overview = previous.overview,
+            posterPath = previous.posterPath,
+            backdropPath = previous.backdropPath,
+        )
+    }
+
     private fun renderLibrary() {
         statusView.text = when {
             store.roots().isEmpty() ->
@@ -160,7 +238,9 @@ class MainActivity : Activity() {
                 "No supported video files found."
             else -> {
                 val suffix = if (library.size == 1) "" else "s"
-                library.size.toString() + " video" + suffix + " indexed."
+                val matched = library.count { it.metadataId != null }
+                library.size.toString() + " video" + suffix + " indexed" +
+                    if (store.tmdbToken().isNotBlank()) " • " + matched + " matched" else ""
             }
         }
 

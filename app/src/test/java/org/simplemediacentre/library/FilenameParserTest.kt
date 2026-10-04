@@ -1,6 +1,7 @@
 package org.simplemediacentre.library
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.simplemediacentre.model.MediaRecord
 
@@ -20,6 +21,7 @@ class FilenameParserTest {
         val parsed = FilenameParser.parse("Alien (1979).1080p.BluRay.mkv")
 
         assertEquals("Alien", parsed.title)
+        assertEquals(1979, parsed.year)
         assertEquals(MediaRecord.Kind.MOVIE, parsed.kind)
     }
 
@@ -28,6 +30,7 @@ class FilenameParserTest {
         val parsed = FilenameParser.parse("The.Matrix.2160p.UHD.BluRay.x265.mkv")
 
         assertEquals("The Matrix", parsed.title)
+        assertNull(parsed.year)
     }
 
     @Test

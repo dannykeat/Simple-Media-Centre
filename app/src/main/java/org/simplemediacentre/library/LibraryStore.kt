@@ -17,6 +17,13 @@ class LibraryStore(context: Context) {
         preferences.edit().putStringSet(KEY_ROOTS, updated).apply()
     }
 
+    fun tmdbToken(): String =
+        preferences.getString(KEY_TMDB_TOKEN, "").orEmpty()
+
+    fun saveTmdbToken(token: String) {
+        preferences.edit().putString(KEY_TMDB_TOKEN, token.trim()).apply()
+    }
+
     fun loadLibrary(): List<MediaRecord> {
         val raw = preferences.getString(KEY_LIBRARY, null) ?: return emptyList()
         return runCatching {
@@ -30,9 +37,15 @@ class LibraryStore(context: Context) {
                             fileName = item.getString("fileName"),
                             title = item.getString("title"),
                             kind = MediaRecord.Kind.valueOf(item.getString("kind")),
+                            year = item.optIntOrNull("year"),
                             season = item.optIntOrNull("season"),
                             episode = item.optIntOrNull("episode"),
                             modifiedAt = item.optLong("modifiedAt", 0L),
+                            metadataId = item.optIntOrNull("metadataId"),
+                            metadataTitle = item.optStringOrNull("metadataTitle"),
+                            overview = item.optStringOrNull("overview"),
+                            posterPath = item.optStringOrNull("posterPath"),
+                            backdropPath = item.optStringOrNull("backdropPath"),
                         )
                     )
                 }
@@ -49,9 +62,15 @@ class LibraryStore(context: Context) {
                     .put("fileName", item.fileName)
                     .put("title", item.title)
                     .put("kind", item.kind.name)
-                    .put("season", item.season ?: JSONObject.NULL)
-                    .put("episode", item.episode ?: JSONObject.NULL)
+                    .putNullable("year", item.year)
+                    .putNullable("season", item.season)
+                    .putNullable("episode", item.episode)
                     .put("modifiedAt", item.modifiedAt)
+                    .putNullable("metadataId", item.metadataId)
+                    .putNullable("metadataTitle", item.metadataTitle)
+                    .putNullable("overview", item.overview)
+                    .putNullable("posterPath", item.posterPath)
+                    .putNullable("backdropPath", item.backdropPath)
             )
         }
         preferences.edit().putString(KEY_LIBRARY, array.toString()).apply()
@@ -69,9 +88,16 @@ class LibraryStore(context: Context) {
     private fun JSONObject.optIntOrNull(key: String): Int? =
         if (!has(key) || isNull(key)) null else optInt(key)
 
+    private fun JSONObject.optStringOrNull(key: String): String? =
+        if (!has(key) || isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
+
+    private fun JSONObject.putNullable(key: String, value: Any?): JSONObject =
+        put(key, value ?: JSONObject.NULL)
+
     private companion object {
         const val KEY_ROOTS = "roots"
         const val KEY_LIBRARY = "library"
+        const val KEY_TMDB_TOKEN = "tmdb_token"
         const val KEY_POSITION_PREFIX = "position:"
     }
 }

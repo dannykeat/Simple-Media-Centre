@@ -20,9 +20,11 @@ class MediaScanner(private val context: Context) {
 
         return results
             .distinctBy(MediaRecord::uri)
-            .sortedWith(compareBy<MediaRecord> { it.title.lowercase() }
-                .thenBy { it.season ?: -1 }
-                .thenBy { it.episode ?: -1 })
+            .sortedWith(
+                compareBy<MediaRecord> { it.title.lowercase() }
+                    .thenBy { it.season ?: -1 }
+                    .thenBy { it.episode ?: -1 }
+            )
     }
 
     private fun scanDirectory(directory: DocumentFile, results: MutableList<MediaRecord>) {
@@ -43,6 +45,7 @@ class MediaScanner(private val context: Context) {
                         fileName = name,
                         title = parsed.title,
                         kind = parsed.kind,
+                        year = parsed.year,
                         season = parsed.season,
                         episode = parsed.episode,
                         modifiedAt = file.lastModified(),
