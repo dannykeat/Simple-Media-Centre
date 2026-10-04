@@ -32,9 +32,9 @@
 - [x] Movies / TV Shows / Continue Watching views
 - [x] poster-grid presentation
 - [x] initial Android TV / D-pad focus treatment
-- [ ] Recently Added view
+- [x] Recently Added view
 - [ ] search and sort
-- [ ] watched/unwatched state
+- [x] watched/unwatched state
 - [ ] subtitle and audio-track selection
 - [ ] multiple media sources and source management
 - [ ] background/resumable rescans for large libraries
