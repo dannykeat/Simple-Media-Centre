@@ -3,6 +3,7 @@ package org.simplemediacentre
 import android.app.Activity
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Toast
@@ -13,6 +14,7 @@ import org.simplemediacentre.library.LibraryStore
 
 class PlayerActivity : Activity() {
     private var player: ExoPlayer? = null
+    private lateinit var playerView: PlayerView
     private lateinit var store: LibraryStore
     private lateinit var mediaUri: String
 
@@ -30,7 +32,7 @@ class PlayerActivity : Activity() {
         store = LibraryStore(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        val playerView = PlayerView(this).apply {
+        playerView = PlayerView(this).apply {
             useController = true
             isFocusable = true
             layoutParams = ViewGroup.LayoutParams(
@@ -43,6 +45,7 @@ class PlayerActivity : Activity() {
         val exoPlayer = ExoPlayer.Builder(this).build()
         player = exoPlayer
         playerView.player = exoPlayer
+        playerView.requestFocus()
 
         exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(mediaUri)))
         exoPlayer.prepare()
@@ -53,6 +56,13 @@ class PlayerActivity : Activity() {
         }
         exoPlayer.playWhenReady = true
     }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        if (::playerView.isInitialized && playerView.dispatchKeyEvent(event)) {
+            true
+        } else {
+            super.dispatchKeyEvent(event)
+        }
 
     override fun onStop() {
         player?.let { currentPlayer ->

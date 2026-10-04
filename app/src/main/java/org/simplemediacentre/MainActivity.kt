@@ -5,12 +5,12 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.view.Gravity
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.GridView
 import android.widget.LinearLayout
-import android.widget.ListView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -21,12 +21,21 @@ import org.simplemediacentre.metadata.TmdbMetadataProvider
 import org.simplemediacentre.model.MediaRecord
 
 class MainActivity : Activity() {
+    private enum class Section {
+        MOVIES,
+        TV,
+        CONTINUE,
+    }
+
     private lateinit var store: LibraryStore
-    private lateinit var listView: ListView
+    private lateinit var gridView: GridView
     private lateinit var statusView: TextView
     private lateinit var progressView: ProgressBar
+    private lateinit var adapter: MediaLibraryAdapter
 
     private var library: List<MediaRecord> = emptyList()
+    private var visibleCards: List<LibraryCard> = emptyList()
+    private var section = Section.MOVIES
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +50,8 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi(): View {
-        val padding = (16 * resources.displayMetrics.density).toInt()
+        val density = resources.displayMetrics.density
+        val padding = (16 * density).toInt()
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -52,16 +62,20 @@ class MainActivity : Activity() {
                 textSize = 26f
             })
 
-            addView(TextView(context).apply {
-                text = "Local videos, without the Kodi overhead"
-                textSize = 14f
-            })
+            val sections = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+
+                addView(sectionButton("Movies", Section.MOVIES))
+                addView(sectionButton("TV Shows", Section.TV))
+                addView(sectionButton("Continue", Section.CONTINUE))
+            }
+            addView(sections)
 
             val actions = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
 
                 addView(Button(context).apply {
-                    text = "Add media folder"
+                    text = "Add folder"
                     setOnClickListener { chooseMediaFolder() }
                 })
 
@@ -71,7 +85,7 @@ class MainActivity : Activity() {
                 })
 
                 addView(Button(context).apply {
-                    text = "TMDB setup"
+                    text = "TMDB"
                     setOnClickListener { showTmdbSetup() }
                 })
 
@@ -93,14 +107,31 @@ class MainActivity : Activity() {
             }
             addView(statusView)
 
-            listView = ListView(context).apply {
-                isFocusable = true
+            adapter = MediaLibraryAdapter(context, emptyList())
+
+            gridView = GridView(context).apply {
+                numColumns = GridView.AUTO_FIT
+                columnWidth = (170 * density).toInt()
+                horizontalSpacing = (12 * density).toInt()
+                verticalSpacing = (12 * density).toInt()
+                stretchMode = GridView.STRETCH_COLUMN_WIDTH
+                gravity = Gravity.CENTER
+                clipToPadding = false
+                setPadding(0, 0, 0, padding)
+                adapter = this@MainActivity.adapter
+
                 setOnItemClickListener { _, _, position, _ ->
-                    play(library[position])
+                    openCard(visibleCards[position])
+                }
+
+                setOnItemLongClickListener { _, _, position, _ ->
+                    showDetails(visibleCards[position])
+                    true
                 }
             }
+
             addView(
-                listView,
+                gridView,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     0,
@@ -109,6 +140,16 @@ class MainActivity : Activity() {
             )
         }
     }
+
+    private fun sectionButton(label: String, target: Section): Button =
+        Button(this).apply {
+            text = label
+            setOnClickListener {
+                section = target
+                renderLibrary()
+                gridView.requestFocus()
+            }
+        }
 
     @Suppress("DEPRECATION")
     private fun chooseMediaFolder() {
@@ -154,7 +195,9 @@ class MainActivity : Activity() {
 
         AlertDialog.Builder(this)
             .setTitle("TMDB metadata")
-            .setMessage("Enter your TMDB API Read Access Token. Leave it blank to disable online metadata.")
+            .setMessage(
+                "Enter your TMDB API Read Access Token. Leave it blank to disable online metadata."
+            )
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
                 store.saveTmdbToken(input.text.toString())
@@ -231,33 +274,147 @@ class MainActivity : Activity() {
     }
 
     private fun renderLibrary() {
+        visibleCards = when (section) {
+            Section.MOVIES -> movieCards()
+            Section.TV -> tvCards()
+            Section.CONTINUE -> continueCards()
+        }
+        adapter.submitItems(visibleCards)
+
         statusView.text = when {
             store.roots().isEmpty() ->
                 "No media folders configured. Choose a folder or external drive to begin."
             library.isEmpty() ->
                 "No supported video files found."
+            visibleCards.isEmpty() ->
+                when (section) {
+                    Section.MOVIES -> "No movies found."
+                    Section.TV -> "No TV episodes found."
+                    Section.CONTINUE -> "Nothing to continue watching."
+                }
             else -> {
-                val suffix = if (library.size == 1) "" else "s"
                 val matched = library.count { it.metadataId != null }
-                library.size.toString() + " video" + suffix + " indexed" +
-                    if (store.tmdbToken().isNotBlank()) " • " + matched + " matched" else ""
+                val label = when (section) {
+                    Section.MOVIES -> "movie"
+                    Section.TV -> "show"
+                    Section.CONTINUE -> "video"
+                }
+                val suffix = if (visibleCards.size == 1) "" else "s"
+                visibleCards.size.toString() + " " + label + suffix +
+                    if (store.tmdbToken().isNotBlank()) " • " + matched + " files matched" else ""
             }
         }
+    }
 
-        val labels = library.map { item ->
-            val position = store.playbackPosition(item.uri)
-            if (position > 30_000L) {
-                item.displayTitle + "  •  Resume " + formatPosition(position)
-            } else {
-                item.displayTitle
+    private fun movieCards(): List<LibraryCard> =
+        library
+            .filter { it.kind == MediaRecord.Kind.MOVIE }
+            .sortedBy { it.displayTitle.lowercase() }
+            .map { item ->
+                LibraryCard(
+                    key = item.uri,
+                    title = item.displayTitle,
+                    subtitle = item.year?.toString().orEmpty(),
+                    posterPath = item.posterPath,
+                    items = listOf(item),
+                )
             }
+
+    private fun tvCards(): List<LibraryCard> =
+        library
+            .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
+            .groupBy { item ->
+                item.metadataId?.let { "tmdb:$it" }
+                    ?: "title:" + item.title.lowercase()
+            }
+            .values
+            .map { episodes ->
+                val ordered = episodes.sortedWith(
+                    compareBy<MediaRecord> { it.season ?: Int.MAX_VALUE }
+                        .thenBy { it.episode ?: Int.MAX_VALUE }
+                )
+                val representative = ordered.first()
+                val seasonCount = ordered.mapNotNull { it.season }.distinct().size
+                val seasonText = if (seasonCount > 0) {
+                    " • " + seasonCount + " season" + if (seasonCount == 1) "" else "s"
+                } else {
+                    ""
+                }
+
+                LibraryCard(
+                    key = representative.metadataId?.toString() ?: representative.title,
+                    title = representative.metadataTitle ?: representative.title,
+                    subtitle = ordered.size.toString() + " episode" +
+                        if (ordered.size == 1) "" else "s" + seasonText,
+                    posterPath = representative.posterPath,
+                    items = ordered,
+                )
+            }
+            .sortedBy { it.title.lowercase() }
+
+    private fun continueCards(): List<LibraryCard> =
+        library
+            .mapNotNull { item ->
+                val position = store.playbackPosition(item.uri)
+                if (position <= 30_000L) {
+                    null
+                } else {
+                    LibraryCard(
+                        key = item.uri,
+                        title = item.displayTitle,
+                        subtitle = "Resume " + formatPosition(position),
+                        posterPath = item.posterPath,
+                        items = listOf(item),
+                    )
+                }
+            }
+            .sortedBy { it.title.lowercase() }
+
+    private fun openCard(card: LibraryCard) {
+        if (card.items.size == 1) {
+            play(card.items.first())
+        } else {
+            showEpisodePicker(card)
+        }
+    }
+
+    private fun showEpisodePicker(card: LibraryCard) {
+        val labels = card.items.map { episode ->
+            val position = store.playbackPosition(episode.uri)
+            val resume = if (position > 30_000L) " • Resume " + formatPosition(position) else ""
+            episode.displayTitle + resume
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(card.title)
+            .setItems(labels) { _, which ->
+                play(card.items[which])
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun showDetails(card: LibraryCard) {
+        val representative = card.items.first()
+        val summary = buildString {
+            if (card.subtitle.isNotBlank()) {
+                append(card.subtitle)
+                append("\n\n")
+            }
+            append(
+                representative.overview?.takeIf { it.isNotBlank() }
+                    ?: "No online description is available for this item."
+            )
         }
 
-        listView.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_list_item_1,
-            labels,
-        )
+        AlertDialog.Builder(this)
+            .setTitle(card.title)
+            .setMessage(summary)
+            .setPositiveButton(if (card.items.size == 1) "Play" else "Episodes") { _, _ ->
+                openCard(card)
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun play(item: MediaRecord) {
@@ -270,14 +427,22 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::listView.isInitialized) renderLibrary()
+        if (::gridView.isInitialized) renderLibrary()
     }
 
     private fun formatPosition(positionMs: Long): String {
         val totalSeconds = positionMs / 1000
-        val minutes = totalSeconds / 60
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
         val seconds = totalSeconds % 60
-        return minutes.toString() + ":" + seconds.toString().padStart(2, '0')
+
+        return if (hours > 0) {
+            hours.toString() + ":" +
+                minutes.toString().padStart(2, '0') + ":" +
+                seconds.toString().padStart(2, '0')
+        } else {
+            minutes.toString() + ":" + seconds.toString().padStart(2, '0')
+        }
     }
 
     private companion object {

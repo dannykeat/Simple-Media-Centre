@@ -11,7 +11,7 @@
 - [x] Media3 playback
 - [x] resume position
 - [x] parser unit tests
-- [ ] validate build in CI
+- [x] validate command-line build on JDK 17 / Gradle 9.6 / API 37.0
 - [ ] validate on a real Android/Android TV device
 
 ## M1 — metadata
@@ -22,21 +22,23 @@
 - [x] TV series search/matching
 - [x] cache matched IDs, summaries and artwork paths
 - [x] retain usable local records when metadata lookup fails
+- [x] load poster artwork with memory/disk caching
 - [ ] fetch episode-specific metadata after series matching
-- [ ] poster/backdrop image loading and disk caching
 - [ ] manual "fix match" flow
 - [ ] add approved TMDB logo to About/Credits before public release
 
 ## M2 — media-centre UX
 
-- [ ] Movies / TV Shows / Recently Added / Continue Watching views
-- [ ] poster-grid presentation
-- [ ] Android TV / D-pad focus polish
+- [x] Movies / TV Shows / Continue Watching views
+- [x] poster-grid presentation
+- [x] initial Android TV / D-pad focus treatment
+- [ ] Recently Added view
 - [ ] search and sort
 - [ ] watched/unwatched state
 - [ ] subtitle and audio-track selection
 - [ ] multiple media sources and source management
 - [ ] background/resumable rescans for large libraries
+- [ ] visual polish and responsive phone/tablet/TV sizing
 
 ## M3 — robustness
 
