@@ -24,6 +24,19 @@ class LibraryStore(context: Context) {
         preferences.edit().putString(KEY_TMDB_TOKEN, token.trim()).apply()
     }
 
+    fun isWatched(uri: String): Boolean =
+        preferences.getBoolean(KEY_WATCHED_PREFIX + uri, false)
+
+    fun setWatched(uri: String, watched: Boolean) {
+        preferences.edit()
+            .putBoolean(KEY_WATCHED_PREFIX + uri, watched)
+            .apply()
+
+        if (watched) {
+            savePlaybackPosition(uri, 0L)
+        }
+    }
+
     fun loadLibrary(): List<MediaRecord> {
         val raw = preferences.getString(KEY_LIBRARY, null) ?: return emptyList()
         return runCatching {
@@ -41,6 +54,7 @@ class LibraryStore(context: Context) {
                             season = item.optIntOrNull("season"),
                             episode = item.optIntOrNull("episode"),
                             modifiedAt = item.optLong("modifiedAt", 0L),
+                            addedAt = item.optLong("addedAt", 0L),
                             metadataId = item.optIntOrNull("metadataId"),
                             metadataTitle = item.optStringOrNull("metadataTitle"),
                             overview = item.optStringOrNull("overview"),
@@ -69,6 +83,7 @@ class LibraryStore(context: Context) {
                     .putNullable("season", item.season)
                     .putNullable("episode", item.episode)
                     .put("modifiedAt", item.modifiedAt)
+                    .put("addedAt", item.addedAt)
                     .putNullable("metadataId", item.metadataId)
                     .putNullable("metadataTitle", item.metadataTitle)
                     .putNullable("overview", item.overview)
@@ -105,5 +120,6 @@ class LibraryStore(context: Context) {
         const val KEY_LIBRARY = "library"
         const val KEY_TMDB_TOKEN = "tmdb_token"
         const val KEY_POSITION_PREFIX = "position:"
+        const val KEY_WATCHED_PREFIX = "watched:"
     }
 }
