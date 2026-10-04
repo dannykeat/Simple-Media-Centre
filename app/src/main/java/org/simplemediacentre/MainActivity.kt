@@ -1,9 +1,13 @@
 package org.simplemediacentre
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -46,7 +50,7 @@ class MainActivity : Activity() {
         library = store.loadLibrary()
         renderLibrary()
 
-        if (library.isEmpty() && store.roots().isNotEmpty()) {
+        if (library.isEmpty() && (store.roots().isNotEmpty() || store.mediaStoreVolumes().isNotEmpty())) {
             scanLibrary()
         }
     }
@@ -162,7 +166,93 @@ class MainActivity : Activity() {
                     Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             )
         }
-        startActivityForResult(intent, REQUEST_MEDIA_FOLDER)
+
+        if (intent.resolveActivity(packageManager) != null) {
+            startActivityForResult(intent, REQUEST_MEDIA_FOLDER)
+        } else {
+            chooseMediaStoreVolume()
+        }
+    }
+
+    private fun chooseMediaStoreVolume() {
+        if (!hasVideoReadPermission()) {
+            requestPermissions(
+                arrayOf(requiredVideoReadPermission()),
+                REQUEST_VIDEO_PERMISSION,
+            )
+            return
+        }
+
+        showMediaStoreVolumes()
+    }
+
+    private fun hasVideoReadPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+            checkSelfPermission(requiredVideoReadPermission()) == PackageManager.PERMISSION_GRANTED
+
+    private fun requiredVideoReadPermission(): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+    private fun showMediaStoreVolumes() {
+        val volumes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.getExternalVolumeNames(this).sorted()
+        } else {
+            listOf(MEDIASTORE_LEGACY_EXTERNAL)
+        }
+
+        if (volumes.isEmpty()) {
+            Toast.makeText(
+                this,
+                "No shared media storage is currently available.",
+                Toast.LENGTH_LONG,
+            ).show()
+            return
+        }
+
+        val labels = volumes.map { volume ->
+            when (volume) {
+                MediaStore.VOLUME_EXTERNAL_PRIMARY -> "Internal shared storage"
+                MEDIASTORE_LEGACY_EXTERNAL -> "Shared storage"
+                else -> "External storage • " + volume
+            }
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Choose media storage")
+            .setMessage(
+                "This device has no folder picker. Choose a storage volume and " +
+                    "Simple Media Centre will index the videos Android exposes from it."
+            )
+            .setItems(labels) { _, which ->
+                store.addMediaStoreVolume(volumes[which])
+                scanLibrary()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode != REQUEST_VIDEO_PERMISSION) return
+
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            showMediaStoreVolumes()
+        } else {
+            Toast.makeText(
+                this,
+                "Video access is required to scan media on this device.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 
     @Deprecated("Uses the platform activity-result API to keep the MVP dependency-light.")
@@ -223,19 +313,21 @@ class MainActivity : Activity() {
 
     private fun scanLibrary() {
         val roots = store.roots()
-        if (roots.isEmpty()) {
-            statusView.text = "Add a media folder first."
+        val mediaStoreVolumes = store.mediaStoreVolumes()
+        val sourceCount = roots.size + mediaStoreVolumes.size
+        if (sourceCount == 0) {
+            statusView.text = "Add a media folder or storage source first."
             return
         }
 
         progressView.visibility = View.VISIBLE
-        val suffix = if (roots.size == 1) "" else "s"
-        statusView.text = "Scanning " + roots.size + " media source" + suffix + "…"
+        val suffix = if (sourceCount == 1) "" else "s"
+        statusView.text = "Scanning " + sourceCount + " media source" + suffix + "…"
 
         Thread {
             val previous = store.loadLibrary().associateBy { it.uri }
             val now = System.currentTimeMillis()
-            var scanned = MediaScanner(this).scan(roots).map { item ->
+            var scanned = MediaScanner(this).scan(roots, mediaStoreVolumes).map { item ->
                 carryCachedMetadata(item, previous[item.uri], now)
             }
 
@@ -293,8 +385,8 @@ class MainActivity : Activity() {
         adapter.submitItems(visibleCards)
 
         statusView.text = when {
-            store.roots().isEmpty() ->
-                "No media folders configured. Choose a folder or external drive to begin."
+            store.roots().isEmpty() && store.mediaStoreVolumes().isEmpty() ->
+                "No media sources configured. Choose a folder or storage volume to begin."
             library.isEmpty() ->
                 "No supported video files found."
             visibleCards.isEmpty() ->
@@ -671,5 +763,7 @@ class MainActivity : Activity() {
 
     private companion object {
         const val REQUEST_MEDIA_FOLDER = 1001
+        const val REQUEST_VIDEO_PERMISSION = 1002
+        const val MEDIASTORE_LEGACY_EXTERNAL = "external"
     }
 }
