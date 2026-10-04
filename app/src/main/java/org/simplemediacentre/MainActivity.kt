@@ -3,6 +3,7 @@ package org.simplemediacentre
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -82,7 +83,7 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
 
                 addView(Button(context).apply {
-                    text = "Add folder"
+                    text = "Add source"
                     setOnClickListener { chooseMediaFolder() }
                 })
 
@@ -168,10 +169,15 @@ class MainActivity : Activity() {
         }
 
         if (intent.resolveActivity(packageManager) != null) {
-            startActivityForResult(intent, REQUEST_MEDIA_FOLDER)
-        } else {
-            chooseMediaStoreVolume()
+            try {
+                startActivityForResult(intent, REQUEST_MEDIA_FOLDER)
+                return
+            } catch (_: ActivityNotFoundException) {
+                // Some TV firmware reports a picker handler that cannot actually launch.
+            }
         }
+
+        chooseMediaStoreVolume()
     }
 
     private fun chooseMediaStoreVolume() {
