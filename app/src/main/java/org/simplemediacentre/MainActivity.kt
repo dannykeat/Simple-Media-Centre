@@ -117,38 +117,18 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
 
                 addView(Button(context).apply {
-                    text = "Add source"
-                    setOnClickListener { chooseMediaFolder() }
-                })
-
-                addView(Button(context).apply {
-                    text = "Sources"
-                    setOnClickListener { showSources() }
-                })
-
-                addView(Button(context).apply {
-                    text = "Rescan"
-                    setOnClickListener { scanLibrary() }
-                })
-
-                addView(Button(context).apply {
                     text = "Sort"
                     setOnClickListener { showMovieSort() }
                 })
 
                 addView(Button(context).apply {
-                    text = "Jump"
+                    text = "Jump A–Z"
                     setOnClickListener { showAlphabetJump() }
                 })
 
                 addView(Button(context).apply {
-                    text = "TMDB"
-                    setOnClickListener { showTmdbSetup() }
-                })
-
-                addView(Button(context).apply {
-                    text = "About"
-                    setOnClickListener { showAbout() }
+                    text = "Settings"
+                    setOnClickListener { showSettings() }
                 })
             }
             addView(actions)
@@ -352,6 +332,30 @@ class MainActivity : Activity() {
                 store.setSourceType(sourceId, SourceType.MIXED)
                 scanLibrary()
             }
+            .show()
+    }
+
+    private fun showSettings() {
+        val labels = arrayOf(
+            "Add media source",
+            "Manage sources",
+            "Rescan library",
+            "Metadata",
+            "About",
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("Settings")
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> chooseMediaFolder()
+                    1 -> showSources()
+                    2 -> scanLibrary()
+                    3 -> showTmdbSetup()
+                    4 -> showAbout()
+                }
+            }
+            .setNegativeButton("Close", null)
             .show()
     }
 
