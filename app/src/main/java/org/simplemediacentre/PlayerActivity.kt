@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
@@ -66,10 +67,27 @@ class PlayerActivity : Activity() {
                 override fun onTracksChanged(tracks: Tracks) {
                     updateTrackButtons(tracks)
                 }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    val detail = error.cause?.message?.takeIf { it.isNotBlank() }
+                        ?: error.message
+                        ?: "Unknown playback error"
+                    Toast.makeText(
+                        this@PlayerActivity,
+                        "Cannot play this video: " + detail,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
             }
         )
 
-        exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(mediaUri)))
+        val uri = Uri.parse(mediaUri)
+        exoPlayer.setMediaItem(
+            MediaItem.Builder()
+                .setUri(uri)
+                .setMediaId(mediaUri)
+                .build()
+        )
         exoPlayer.prepare()
 
         val savedPosition = store.playbackPosition(mediaUri)
