@@ -99,14 +99,14 @@ class MainActivity : Activity() {
                     object : SearchView.OnQueryTextListener {
                         override fun onQueryTextSubmit(query: String?): Boolean {
                             searchQuery = query.orEmpty().trim()
-                            renderLibrary()
-                            gridView.requestFocus()
+                            if (::adapter.isInitialized) renderLibrary()
+                            if (::gridView.isInitialized) gridView.requestFocus()
                             return true
                         }
 
                         override fun onQueryTextChange(newText: String?): Boolean {
                             searchQuery = newText.orEmpty().trim()
-                            renderLibrary()
+                            if (::adapter.isInitialized) renderLibrary()
                             return true
                         }
                     }
@@ -546,7 +546,7 @@ class MainActivity : Activity() {
     }
 
     private fun showAlphabetJump() {
-        val labels = (listOf("#") + ('A'..'Z').map(Char::toString)).toTypedArray()
+        val labels = (listOf("#") + ('A'..'Z').map { it.toString() }).toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("Jump to title")
             .setItems(labels) { _, which ->
