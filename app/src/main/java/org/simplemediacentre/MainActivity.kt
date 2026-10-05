@@ -179,6 +179,7 @@ class MainActivity : Activity() {
                 stretchMode = GridView.STRETCH_COLUMN_WIDTH
                 gravity = Gravity.CENTER
                 clipToPadding = false
+                clipChildren = false
                 setPadding(0, 0, 0, padding)
                 adapter = this@MainActivity.adapter
 
