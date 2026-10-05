@@ -818,17 +818,19 @@ class MainActivity : Activity() {
             val sourceTypes = (roots + mediaStoreVolumes + folderSourceIds)
                 .associateWith(store::sourceType)
             val fresh = MediaScanner(this).scan(
-                roots,
-                scanVolumes,
-                sourceTypes,
-                mediaStoreFolders,
-            ) { count ->
-                runOnUiThread {
-                    if (generation == scanGeneration) {
-                        statusView.text = "Scanning media… " + count + " videos found"
+                rootUris = roots,
+                mediaStoreVolumes = scanVolumes,
+                sourceTypes = sourceTypes,
+                mediaStoreFolders = mediaStoreFolders,
+                shouldContinue = { generation == scanGeneration },
+                onProgress = { count ->
+                    runOnUiThread {
+                        if (generation == scanGeneration) {
+                            statusView.text = "Scanning media… " + count + " videos found"
+                        }
                     }
-                }
-            }.map { item ->
+                },
+            ).map { item ->
                 carryCachedMetadata(item, previous[item.uri], now)
             }
             val cachedUnavailable = previous.values.filter { item ->
