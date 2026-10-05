@@ -11,8 +11,15 @@ class TmdbMetadataProvider(
     private val bearerToken: String,
 ) : MetadataProvider {
     private val genreCache = mutableMapOf<String, Map<Int, String>>()
-    override fun match(item: MediaRecord): MediaMetadata? =
-        search(item, limit = 1).firstOrNull()
+    override fun match(item: MediaRecord): MediaMetadata? {
+        val candidates = search(item, limit = 5)
+        if (candidates.isEmpty()) return null
+
+        val wanted = normalizedTitle(item.title)
+        candidates.firstOrNull { normalizedTitle(it.title) == wanted }?.let { return it }
+
+        return if (item.year != null) candidates.firstOrNull() else null
+    }
 
     override fun search(item: MediaRecord, limit: Int): List<MediaMetadata> {
         if (bearerToken.isBlank() || item.kind == MediaRecord.Kind.UNKNOWN || item.kind == MediaRecord.Kind.VIDEO || limit <= 0) {
@@ -64,6 +71,10 @@ class TmdbMetadataProvider(
             }
         }
     }
+
+    private fun normalizedTitle(value: String): String =
+        value.lowercase()
+            .filter(Char::isLetterOrDigit)
 
     private fun resultYear(endpoint: String, item: JSONObject): Int? {
         val key = if (endpoint == "tv") "first_air_date" else "release_date"
