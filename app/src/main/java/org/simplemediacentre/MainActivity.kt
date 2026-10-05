@@ -1287,7 +1287,11 @@ class MainActivity : Activity() {
                     )
                 }
             }
-            .sortedBy { it.title.lowercase() }
+            .sortedWith(
+                compareByDescending<LibraryCard> { card ->
+                    card.items.firstOrNull()?.let { store.lastPlayed(it.uri) } ?: 0L
+                }.thenBy { it.title.lowercase() }
+            )
 
     private fun openCard(card: LibraryCard) {
         when (card.key) {
