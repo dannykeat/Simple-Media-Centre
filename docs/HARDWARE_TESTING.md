@@ -32,6 +32,7 @@ Target device: MECOOL Android TV with externally powered USB hard drive.
   - unwatched
   - watched
   - decade
+  - genre (when metadata is available)
 - Test Browse → Jump A–Z.
 - Confirm D-pad focus remains obvious while moving through a large grid.
 
@@ -75,6 +76,7 @@ For each:
 - Confirm D-pad player controls.
 - Confirm audio-track selector.
 - Confirm subtitle selector.
+- Open Info and record the reported video/audio codec and resolution for at least one working file.
 - Stop partway through and confirm Resume.
 - Use Actions → Restart from beginning and confirm playback starts from zero.
 - Play to near the end and confirm watched state.
