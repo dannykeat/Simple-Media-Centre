@@ -1496,7 +1496,7 @@ class MainActivity : Activity() {
                     LibraryCard(
                         key = item.uri,
                         title = item.displayTitle,
-                        subtitle = "Resume " + formatPosition(position),
+                        subtitle = "Resume " + TimeFormatter.format(position),
                         posterPath = item.posterPath,
                         items = listOf(item),
                     )
@@ -1535,7 +1535,7 @@ class MainActivity : Activity() {
         val labels = ordered.map { item ->
             val position = store.playbackPosition(item.uri)
             val resume = if (PlaybackRules.canResume(position, store.isWatched(item.uri))) {
-                " • Resume " + formatPosition(position)
+                " • Resume " + TimeFormatter.format(position)
             } else {
                 ""
             }
@@ -1600,7 +1600,7 @@ class MainActivity : Activity() {
         val labels = ordered.map { episode ->
             val position = store.playbackPosition(episode.uri)
             val resume = if (PlaybackRules.canResume(position, store.isWatched(episode.uri))) {
-                " • Resume " + formatPosition(position)
+                " • Resume " + TimeFormatter.format(position)
             } else {
                 ""
             }
@@ -1934,7 +1934,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun formatPosition(positionMs: Long): String {
+    private fun TimeFormatter.format(positionMs: Long): String {
         val totalSeconds = positionMs / 1000
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
