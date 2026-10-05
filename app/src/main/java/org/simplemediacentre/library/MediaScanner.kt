@@ -106,7 +106,7 @@ class MediaScanner(private val context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
 
         val collection = MediaStore.Video.Media.getContentUri(volumeName)
-        val folders = linkedSetOf<String>()
+        val folders = mutableListOf<String>()
 
         try {
             context.contentResolver.query(
@@ -132,10 +132,7 @@ class MediaScanner(private val context: Context) {
             return emptyList()
         }
 
-        return folders.sortedWith(
-            compareBy<String> { path -> path.count { it == '/' } }
-                .thenBy { it.lowercase() }
-        )
+        return MediaPathRules.usefulFolderChoices(folders)
     }
 
     private fun scanMediaStoreVolume(
