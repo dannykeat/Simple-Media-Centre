@@ -21,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import org.simplemediacentre.library.LibraryAlgorithms
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.MediaIdentity
 import org.simplemediacentre.library.MediaScanner
@@ -228,7 +229,7 @@ class MainActivity : Activity() {
         val tvCount = library
             .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
             .groupBy { item ->
-                item.metadataId?.let { "tmdb:" + it } ?: "title:" + item.title.lowercase()
+                LibraryAlgorithms.tvShowKey(item)
             }
             .size
         val videoCount = library.count {
@@ -855,7 +856,7 @@ class MainActivity : Activity() {
         val showCount = library
             .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
             .groupBy { item ->
-                item.metadataId?.let { "tmdb:" + it } ?: "title:" + item.title.lowercase()
+                LibraryAlgorithms.tvShowKey(item)
             }
             .size
         val videoCount = library.count {
@@ -1133,7 +1134,7 @@ class MainActivity : Activity() {
         }
         val showCount = tvEpisodes
             .groupBy { item ->
-                item.metadataId?.let { "tmdb:" + it } ?: "title:" + item.title.lowercase()
+                LibraryAlgorithms.tvShowKey(item)
             }
             .size
 
@@ -1239,19 +1240,12 @@ class MainActivity : Activity() {
             }
     }
 
-    private fun matchesSearch(item: MediaRecord): Boolean {
-        if (searchQuery.isBlank()) return true
-        val query = searchQuery.lowercase()
-        return item.displayTitle.lowercase().contains(query) ||
-            item.fileName.lowercase().contains(query) ||
-            item.episodeTitle?.lowercase()?.contains(query) == true ||
-            item.relativePath?.lowercase()?.contains(query) == true ||
-            item.genres.any { it.lowercase().contains(query) } ||
-            item.sourceId
-                ?.let(store::sourceDisplayName)
-                ?.lowercase()
-                ?.contains(query) == true
-    }
+    private fun matchesSearch(item: MediaRecord): Boolean =
+        LibraryAlgorithms.matchesSearch(
+            item = item,
+            rawQuery = searchQuery,
+            sourceDisplayName = item.sourceId?.let(store::sourceDisplayName),
+        )
 
     private fun showBrowseOptions() {
         val labels = when (section) {
@@ -1474,10 +1468,7 @@ class MainActivity : Activity() {
             .filter { it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN }
             .filter { matchesSearch(it) }
             .groupBy { item ->
-                val folder = item.relativePath
-                    ?.trim('/')
-                    ?.substringBefore('/')
-                    ?.takeIf { it.isNotBlank() }
+                val folder = LibraryAlgorithms.topFolder(item.relativePath)
                 item.sourceId.orEmpty() + "|" + (folder ?: "")
             }
             .values
