@@ -48,22 +48,19 @@ class LibraryStore(context: Context) {
 
     fun mediaStoreFolders(volumeName: String): Set<String> =
         preferences.getStringSet(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName, emptySet())
-            ?.mapNotNull(::normalizeFolderPath)
+            ?.mapNotNull(MediaPathRules::normalize)
             ?.toSet()
             .orEmpty()
 
     fun setMediaStoreFolders(volumeName: String, folders: Collection<String>) {
-        val normalized = folders.mapNotNull(::normalizeFolderPath).toSet()
+        val normalized = folders.mapNotNull(MediaPathRules::normalize).toSet()
         preferences.edit()
             .putStringSet(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName, normalized)
             .apply()
     }
 
     fun mediaStoreFolderSourceId(volumeName: String, folder: String): String =
-        volumeName + "|" + normalizeFolderPath(folder).orEmpty()
-
-    private fun normalizeFolderPath(path: String): String? =
-        path.trim().trim('/').takeIf { it.isNotBlank() }
+        MediaPathRules.sourceId(volumeName, folder)
 
     fun sourceType(sourceId: String): SourceType {
         val raw = preferences.getString(KEY_SOURCE_TYPE_PREFIX + sourceId, null)
