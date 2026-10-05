@@ -83,8 +83,9 @@ class MediaLibraryAdapter(
         title.text = card.title
         subtitle.text = card.subtitle
 
-        val posterUrl = card.posterPath?.let { TMDB_IMAGE_BASE + it }
-        poster.load(posterUrl) {
+        val artwork = card.posterPath?.let { TMDB_IMAGE_BASE + it }
+            ?: card.items.firstOrNull()?.uri
+        poster.load(artwork) {
             crossfade(true)
         }
 
