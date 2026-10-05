@@ -23,7 +23,13 @@ class MediaScanner(private val context: Context) {
 
         rootUris.forEach { rawUri ->
             val root = DocumentFile.fromTreeUri(context, Uri.parse(rawUri)) ?: return@forEach
-            scanDirectory(root, results, sourceTypes[rawUri] ?: SourceType.MIXED)
+            scanDirectory(
+                directory = root,
+                results = results,
+                sourceType = sourceTypes[rawUri] ?: SourceType.MIXED,
+                sourceId = rawUri,
+                relativePath = "",
+            )
         }
 
         mediaStoreVolumes.forEach { volumeName ->
@@ -39,7 +45,13 @@ class MediaScanner(private val context: Context) {
             )
     }
 
-    private fun scanDirectory(directory: DocumentFile, results: MutableList<MediaRecord>, sourceType: SourceType) {
+    private fun scanDirectory(
+        directory: DocumentFile,
+        results: MutableList<MediaRecord>,
+        sourceType: SourceType,
+        sourceId: String,
+        relativePath: String,
+    ) {
         val children = try {
             directory.listFiles()
         } catch (_: SecurityException) {
@@ -48,7 +60,17 @@ class MediaScanner(private val context: Context) {
 
         children.forEach { file ->
             when {
-                file.isDirectory -> scanDirectory(file, results, sourceType)
+                file.isDirectory -> scanDirectory(
+                    directory = file,
+                    results = results,
+                    sourceType = sourceType,
+                    sourceId = sourceId,
+                    relativePath = if (relativePath.isBlank()) {
+                        file.name.orEmpty()
+                    } else {
+                        relativePath + "/" + file.name.orEmpty()
+                    },
+                )
                 file.isFile && isVideo(file) -> {
                     val name = file.name ?: return@forEach
                     val parsed = FilenameParser.parse(name)
@@ -57,6 +79,8 @@ class MediaScanner(private val context: Context) {
                         fileName = name,
                         title = parsed.title,
                         kind = kindFor(parsed.kind, sourceType),
+                        sourceId = sourceId,
+                        relativePath = relativePath.takeIf { it.isNotBlank() },
                         year = parsed.year,
                         season = parsed.season,
                         episode = parsed.episode,
@@ -78,11 +102,14 @@ class MediaScanner(private val context: Context) {
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         }
 
-        val projection = arrayOf(
-            MediaStore.Video.Media._ID,
-            MediaStore.Video.Media.DISPLAY_NAME,
-            MediaStore.Video.Media.DATE_MODIFIED,
-        )
+        val projection = buildList {
+            add(MediaStore.Video.Media._ID)
+            add(MediaStore.Video.Media.DISPLAY_NAME)
+            add(MediaStore.Video.Media.DATE_MODIFIED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                add(MediaStore.Video.Media.RELATIVE_PATH)
+            }
+        }.toTypedArray()
 
         try {
             context.contentResolver.query(
@@ -97,6 +124,11 @@ class MediaScanner(private val context: Context) {
                     cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
                 val modifiedColumn =
                     cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+                val relativePathColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
+                } else {
+                    -1
+                }
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -109,6 +141,12 @@ class MediaScanner(private val context: Context) {
                         fileName = name,
                         title = parsed.title,
                         kind = kindFor(parsed.kind, sourceType),
+                        sourceId = volumeName,
+                        relativePath = if (relativePathColumn >= 0) {
+                            cursor.getString(relativePathColumn)?.trim('/')?.takeIf { it.isNotBlank() }
+                        } else {
+                            null
+                        },
                         year = parsed.year,
                         season = parsed.season,
                         episode = parsed.episode,
