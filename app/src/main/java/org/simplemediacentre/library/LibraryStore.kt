@@ -205,6 +205,25 @@ class LibraryStore(context: Context) {
             .apply()
     }
 
+    fun migratePlaybackState(oldUri: String, newUri: String) {
+        if (oldUri == newUri) return
+
+        val watched = isWatched(oldUri)
+        val position = playbackPosition(oldUri)
+        val playedAt = lastPlayed(oldUri)
+
+        val editor = preferences.edit()
+        if (watched) editor.putBoolean(KEY_WATCHED_PREFIX + newUri, true)
+        if (position > 0L) editor.putLong(KEY_POSITION_PREFIX + newUri, position)
+        if (playedAt > 0L) editor.putLong(KEY_LAST_PLAYED_PREFIX + newUri, playedAt)
+
+        editor
+            .remove(KEY_WATCHED_PREFIX + oldUri)
+            .remove(KEY_POSITION_PREFIX + oldUri)
+            .remove(KEY_LAST_PLAYED_PREFIX + oldUri)
+            .apply()
+    }
+
     private fun JSONObject.optStringList(key: String): List<String> {
         val array = optJSONArray(key) ?: return emptyList()
         return buildList {
