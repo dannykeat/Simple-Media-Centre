@@ -62,7 +62,8 @@
 - [x] batched/incremental metadata enrichment with stale-job cancellation
 - [ ] long-term metadata refresh/expiry policy
 - [x] publish local scan results before optional online metadata enrichment
-- [ ] migration/versioning tests
+- [x] cached-library schema version marker and tolerant legacy loading
+- [ ] Android migration/versioning tests
 - [ ] broader device, codec and USB-drive validation
 - [x] preserve cached MediaStore library records while a configured USB volume is temporarily unavailable
 - [x] manual CI trigger and debug APK artifact for repeatable hardware testing
