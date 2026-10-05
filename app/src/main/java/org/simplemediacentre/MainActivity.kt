@@ -217,11 +217,41 @@ class MainActivity : Activity() {
         }
 
     private fun updateSectionButtons() {
+        val movieCount = library.count { it.kind == MediaRecord.Kind.MOVIE }
+        val tvCount = library
+            .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
+            .groupBy { item ->
+                item.metadataId?.let { "tmdb:" + it } ?: "title:" + item.title.lowercase()
+            }
+            .size
+        val videoCount = library.count {
+            it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN
+        }
+        val continueCount = library.count { item ->
+            PlaybackRules.canResume(
+                store.playbackPosition(item.uri),
+                store.isWatched(item.uri),
+            )
+        }
+        val recentCount = library.count { it.addedAt > 0L }.coerceAtMost(30)
+
         sectionButtons.forEach { (target, button) ->
+            val label = when (target) {
+                Section.HOME -> "Home"
+                Section.MOVIES -> sectionLabel("Movies", movieCount)
+                Section.TV -> sectionLabel("TV", tvCount)
+                Section.VIDEOS -> sectionLabel("Videos", videoCount)
+                Section.CONTINUE -> sectionLabel("Continue", continueCount)
+                Section.RECENT -> sectionLabel("Recent", recentCount)
+            }
+            button.text = label
             button.alpha = if (target == section) 1f else 0.62f
             button.isSelected = target == section
         }
     }
+
+    private fun sectionLabel(label: String, count: Int): String =
+        if (count > 0) label + " " + count else label
 
     private fun showSearch() {
         val input = EditText(this).apply {
@@ -984,6 +1014,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderLibrary() {
+        updateSectionButtons()
         visibleCards = when (section) {
             Section.HOME -> homeCards()
             Section.MOVIES -> movieCards()
