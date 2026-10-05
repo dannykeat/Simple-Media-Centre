@@ -20,12 +20,14 @@ class MediaScanner(private val context: Context) {
         mediaStoreVolumes: Collection<String> = emptyList(),
         sourceTypes: Map<String, SourceType> = emptyMap(),
         mediaStoreFolders: Map<String, Set<String>> = emptyMap(),
+        shouldContinue: () -> Boolean = { true },
         onProgress: ((Int) -> Unit)? = null,
     ): List<MediaRecord> {
         val results = mutableListOf<MediaRecord>()
         val counter = ScanCounter()
 
         rootUris.forEach { rawUri ->
+            if (!shouldContinue()) return@forEach
             val root = DocumentFile.fromTreeUri(context, Uri.parse(rawUri)) ?: return@forEach
             scanDirectory(
                 directory = root,
@@ -34,11 +36,13 @@ class MediaScanner(private val context: Context) {
                 sourceId = rawUri,
                 relativePath = "",
                 counter = counter,
+                shouldContinue = shouldContinue,
                 onProgress = onProgress,
             )
         }
 
         mediaStoreVolumes.forEach { volumeName ->
+            if (!shouldContinue()) return@forEach
             scanMediaStoreVolume(
                 volumeName = volumeName,
                 results = results,
@@ -46,6 +50,7 @@ class MediaScanner(private val context: Context) {
                 selectedFolders = mediaStoreFolders[volumeName].orEmpty(),
                 sourceTypes = sourceTypes,
                 counter = counter,
+                shouldContinue = shouldContinue,
                 onProgress = onProgress,
             )
         }
@@ -68,8 +73,11 @@ class MediaScanner(private val context: Context) {
         sourceId: String,
         relativePath: String,
         counter: ScanCounter,
+        shouldContinue: () -> Boolean,
         onProgress: ((Int) -> Unit)?,
     ) {
+        if (!shouldContinue()) return
+
         val children = try {
             directory.listFiles()
         } catch (_: SecurityException) {
@@ -77,6 +85,7 @@ class MediaScanner(private val context: Context) {
         }
 
         children.forEach { file ->
+            if (!shouldContinue()) return
             when {
                 file.isDirectory -> {
                     val childPath = if (relativePath.isBlank()) {
@@ -91,6 +100,7 @@ class MediaScanner(private val context: Context) {
                         sourceId = sourceId,
                         relativePath = childPath,
                         counter = counter,
+                        shouldContinue = shouldContinue,
                         onProgress = onProgress,
                     )
                 }
@@ -156,8 +166,11 @@ class MediaScanner(private val context: Context) {
         selectedFolders: Set<String>,
         sourceTypes: Map<String, SourceType>,
         counter: ScanCounter,
+        shouldContinue: () -> Boolean,
         onProgress: ((Int) -> Unit)?,
     ) {
+        if (!shouldContinue()) return
+
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Video.Media.getContentUri(volumeName)
         } else {
@@ -192,6 +205,7 @@ class MediaScanner(private val context: Context) {
                 }
 
                 while (cursor.moveToNext()) {
+                    if (!shouldContinue()) break
                     val id = cursor.getLong(idColumn)
                     val name = cursor.getString(nameColumn) ?: continue
                     if (!hasSupportedExtension(name)) continue
