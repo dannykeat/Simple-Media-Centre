@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import org.simplemediacentre.model.MediaRecord
+import org.simplemediacentre.model.SourceType
 
 class LibraryStore(context: Context) {
     private val preferences =
@@ -23,6 +24,17 @@ class LibraryStore(context: Context) {
     fun addMediaStoreVolume(volumeName: String) {
         val updated = mediaStoreVolumes().toMutableSet().apply { add(volumeName) }
         preferences.edit().putStringSet(KEY_MEDIASTORE_VOLUMES, updated).apply()
+    }
+
+    fun sourceType(sourceId: String): SourceType {
+        val raw = preferences.getString(KEY_SOURCE_TYPE_PREFIX + sourceId, null)
+        return runCatching { raw?.let(SourceType::valueOf) }.getOrNull() ?: SourceType.MIXED
+    }
+
+    fun setSourceType(sourceId: String, type: SourceType) {
+        preferences.edit()
+            .putString(KEY_SOURCE_TYPE_PREFIX + sourceId, type.name)
+            .apply()
     }
 
     fun tmdbToken(): String =
@@ -130,5 +142,6 @@ class LibraryStore(context: Context) {
         const val KEY_MEDIASTORE_VOLUMES = "mediastore_volumes"
         const val KEY_POSITION_PREFIX = "position:"
         const val KEY_WATCHED_PREFIX = "watched:"
+        const val KEY_SOURCE_TYPE_PREFIX = "source_type:"
     }
 }
