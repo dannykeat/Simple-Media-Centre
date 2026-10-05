@@ -725,6 +725,7 @@ class MainActivity : Activity() {
     private fun recentCards(): List<LibraryCard> =
         library
             .filter { it.addedAt > 0L }
+            .filter { matchesSearch(it) }
             .sortedByDescending { it.addedAt }
             .take(30)
             .map { item ->
@@ -748,6 +749,7 @@ class MainActivity : Activity() {
 
     private fun continueCards(): List<LibraryCard> =
         library
+            .filter { matchesSearch(it) }
             .mapNotNull { item ->
                 val position = store.playbackPosition(item.uri)
                 if (position <= 30_000L || store.isWatched(item.uri)) {
