@@ -852,9 +852,9 @@ class MainActivity : Activity() {
             .setTitle("Simple Media Centre")
             .setMessage(
                 "Simple Media Centre " + BuildConfig.VERSION_NAME + "\n\n" +
-                    "Movies: " + movieCount + "\n" +
-                    "TV shows: " + showCount + " (" + episodeCount + " episodes)\n" +
-                    "Videos: " + videoCount + "\n" +
+                    "Movies: " + metrics.movies + "\n" +
+                    "TV shows: " + metrics.tvShows + " (" + metrics.tvEpisodes + " episodes)\n" +
+                    "Videos: " + metrics.videos + "\n" +
                     "Sources: " + sourceCount + "\n" +
                     "Metadata matched: " + metrics.metadataMatched + "/" + library.size + "\n\n" +
                     "Local-first video library and player.\n\n" +
