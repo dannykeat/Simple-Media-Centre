@@ -348,7 +348,7 @@ class MainActivity : Activity() {
                     0 -> chooseMediaFolder()
                     1 -> showSources()
                     2 -> scanLibrary()
-                    3 -> showTmdbSetup()
+                    3 -> showMetadataSettings()
                     4 -> showAbout()
                 }
             }
@@ -410,6 +410,41 @@ class MainActivity : Activity() {
                 scanLibrary()
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showMetadataSettings() {
+        val configured = store.tmdbToken().isNotBlank()
+        val labels = if (configured) {
+            arrayOf("TMDB: configured", "Clear TMDB token", "Rescan metadata")
+        } else {
+            arrayOf("TMDB: not configured", "Configure TMDB")
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Metadata")
+            .setMessage(
+                if (configured) {
+                    "Online metadata is optional. Local titles and video thumbnails remain available without it."
+                } else {
+                    "Local titles, thumbnails and playback work without an online metadata account."
+                }
+            )
+            .setItems(labels) { _, which ->
+                if (configured) {
+                    when (which) {
+                        0 -> showTmdbSetup()
+                        1 -> {
+                            store.saveTmdbToken("")
+                            Toast.makeText(this, "TMDB disabled.", Toast.LENGTH_SHORT).show()
+                        }
+                        2 -> scanLibrary()
+                    }
+                } else if (which == 1) {
+                    showTmdbSetup()
+                }
+            }
+            .setNegativeButton("Close", null)
             .show()
     }
 
