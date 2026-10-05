@@ -86,6 +86,8 @@ class LibraryStore(context: Context) {
                             fileName = item.getString("fileName"),
                             title = item.getString("title"),
                             kind = MediaRecord.Kind.valueOf(item.getString("kind")),
+                            sourceId = item.optStringOrNull("sourceId"),
+                            relativePath = item.optStringOrNull("relativePath"),
                             year = item.optIntOrNull("year"),
                             season = item.optIntOrNull("season"),
                             episode = item.optIntOrNull("episode"),
@@ -115,6 +117,8 @@ class LibraryStore(context: Context) {
                     .put("fileName", item.fileName)
                     .put("title", item.title)
                     .put("kind", item.kind.name)
+                    .putNullable("sourceId", item.sourceId)
+                    .putNullable("relativePath", item.relativePath)
                     .putNullable("year", item.year)
                     .putNullable("season", item.season)
                     .putNullable("episode", item.episode)
