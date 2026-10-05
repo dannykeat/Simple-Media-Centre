@@ -119,6 +119,7 @@ class MediaScanner(private val context: Context) {
                         season = parsed.season,
                         episode = parsed.episode,
                         modifiedAt = file.lastModified(),
+                        sizeBytes = file.length(),
                     )
                     reportProgress(counter, onProgress)
                 }
@@ -181,6 +182,7 @@ class MediaScanner(private val context: Context) {
             add(MediaStore.Video.Media._ID)
             add(MediaStore.Video.Media.DISPLAY_NAME)
             add(MediaStore.Video.Media.DATE_MODIFIED)
+            add(MediaStore.Video.Media.SIZE)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 add(MediaStore.Video.Media.RELATIVE_PATH)
             }
@@ -198,6 +200,7 @@ class MediaScanner(private val context: Context) {
                 val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
                 val modifiedColumn =
                     cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
                 val relativePathColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
                 } else {
@@ -242,6 +245,7 @@ class MediaScanner(private val context: Context) {
                         season = parsed.season,
                         episode = parsed.episode,
                         modifiedAt = cursor.getLong(modifiedColumn) * 1000L,
+                        sizeBytes = cursor.getLong(sizeColumn),
                     )
                     reportProgress(counter, onProgress)
                 }
