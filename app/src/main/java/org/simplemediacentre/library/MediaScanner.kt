@@ -89,7 +89,7 @@ class MediaScanner(private val context: Context) {
                         uri = file.uri.toString(),
                         fileName = name,
                         title = parsed.title,
-                        kind = kindFor(parsed.kind, sourceType),
+                        kind = SourceClassifier.classify(parsed.kind, sourceType),
                         sourceId = sourceId,
                         relativePath = relativePath.takeIf { it.isNotBlank() },
                         year = parsed.year,
@@ -208,7 +208,7 @@ class MediaScanner(private val context: Context) {
                         uri = ContentUris.withAppendedId(collection, id).toString(),
                         fileName = name,
                         title = parsed.title,
-                        kind = kindFor(parsed.kind, sourceType),
+                        kind = SourceClassifier.classify(parsed.kind, sourceType),
                         sourceId = sourceId,
                         relativePath = displayRelativePath,
                         year = parsed.year,
@@ -224,17 +224,6 @@ class MediaScanner(private val context: Context) {
             return
         }
     }
-
-    private fun kindFor(
-        parsed: MediaRecord.Kind,
-        sourceType: SourceType,
-    ): MediaRecord.Kind =
-        when (sourceType) {
-            SourceType.MOVIES -> MediaRecord.Kind.MOVIE
-            SourceType.TV_SHOWS -> MediaRecord.Kind.TV_EPISODE
-            SourceType.VIDEOS -> MediaRecord.Kind.VIDEO
-            SourceType.MIXED -> parsed
-        }
 
     private fun isVideo(file: DocumentFile): Boolean {
         if (file.type?.startsWith("video/") == true) return true
