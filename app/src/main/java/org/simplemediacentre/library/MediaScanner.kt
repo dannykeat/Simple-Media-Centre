@@ -191,28 +191,17 @@ class MediaScanner(private val context: Context) {
                         null
                     }
 
-                    val selectedFolder = selectedFolders
-                        .filter { folder ->
-                            relativePath == folder ||
-                                relativePath?.startsWith(folder + "/") == true
-                        }
-                        .maxByOrNull(String::length)
+                    val selectedFolder =
+                        MediaPathRules.selectedFolder(relativePath, selectedFolders)
 
                     if (selectedFolders.isNotEmpty() && selectedFolder == null) continue
 
                     val sourceId = selectedFolder
-                        ?.let { volumeName + "|" + it }
+                        ?.let { MediaPathRules.sourceId(volumeName, it) }
                         ?: volumeName
                     val sourceType = sourceTypes[sourceId] ?: volumeSourceType
                     val displayRelativePath =
-                        if (selectedFolder != null && relativePath != null) {
-                            relativePath
-                                .removePrefix(selectedFolder)
-                                .trim('/')
-                                .takeIf { it.isNotBlank() }
-                        } else {
-                            relativePath
-                        }
+                        MediaPathRules.relativeWithinFolder(relativePath, selectedFolder)
 
                     val parsed = FilenameParser.parse(name)
                     results += MediaRecord(
