@@ -26,6 +26,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import org.simplemediacentre.library.LibraryAlgorithms
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.PlaybackRules
 import org.simplemediacentre.model.MediaRecord
@@ -115,26 +116,7 @@ class PlayerActivity : Activity() {
     private fun nextEpisode(): MediaRecord? {
         val items = store.loadLibrary()
         val current = items.firstOrNull { it.uri == mediaUri } ?: return null
-        if (current.kind != MediaRecord.Kind.TV_EPISODE) return null
-
-        val sameShow = items
-            .filter { item ->
-                item.kind == MediaRecord.Kind.TV_EPISODE &&
-                    if (current.metadataId != null) {
-                        item.metadataId == current.metadataId
-                    } else {
-                        item.title.equals(current.title, ignoreCase = true)
-                    }
-            }
-            .sortedWith(
-                compareBy<MediaRecord> { it.season ?: Int.MAX_VALUE }
-                    .thenBy { it.episode ?: Int.MAX_VALUE }
-                    .thenBy { it.fileName.lowercase() }
-            )
-
-        val currentIndex = sameShow.indexOfFirst { it.uri == mediaUri }
-        if (currentIndex < 0 || currentIndex >= sameShow.lastIndex) return null
-        return sameShow[currentIndex + 1]
+        return LibraryAlgorithms.nextEpisode(items, current)
     }
 
     private fun showUpNext(next: MediaRecord) {
