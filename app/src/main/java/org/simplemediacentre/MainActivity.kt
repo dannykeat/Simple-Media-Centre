@@ -26,11 +26,13 @@ import org.simplemediacentre.metadata.LibraryEnricher
 import org.simplemediacentre.metadata.MediaMetadata
 import org.simplemediacentre.metadata.TmdbMetadataProvider
 import org.simplemediacentre.model.MediaRecord
+import org.simplemediacentre.model.SourceType
 
 class MainActivity : Activity() {
     private enum class Section {
         MOVIES,
         TV,
+        VIDEOS,
         CONTINUE,
         RECENT,
     }
@@ -84,6 +86,7 @@ class MainActivity : Activity() {
 
                 addView(sectionButton("Movies", Section.MOVIES))
                 addView(sectionButton("TV Shows", Section.TV))
+                addView(sectionButton("Videos", Section.VIDEOS))
                 addView(sectionButton("Continue", Section.CONTINUE))
                 addView(sectionButton("Recent", Section.RECENT))
             }
@@ -275,8 +278,9 @@ class MainActivity : Activity() {
                     "Simple Media Centre will index the videos Android exposes from it."
             )
             .setItems(labels) { _, which ->
-                store.addMediaStoreVolume(volumes[which])
-                scanLibrary()
+                val volume = volumes[which]
+                store.addMediaStoreVolume(volume)
+                chooseSourceType(volume)
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -314,8 +318,9 @@ class MainActivity : Activity() {
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
-            store.addRoot(uri.toString())
-            scanLibrary()
+            val source = uri.toString()
+            store.addRoot(source)
+            chooseSourceType(source)
         } catch (_: SecurityException) {
             Toast.makeText(
                 this,
@@ -323,6 +328,26 @@ class MainActivity : Activity() {
                 Toast.LENGTH_LONG,
             ).show()
         }
+    }
+
+    private fun chooseSourceType(sourceId: String) {
+        val types = SourceType.entries.toTypedArray()
+        val labels = types.map(SourceType::label).toTypedArray()
+        val current = types.indexOf(store.sourceType(sourceId)).coerceAtLeast(0)
+
+        AlertDialog.Builder(this)
+            .setTitle("What is in this source?")
+            .setMessage("Choose how videos in this folder or storage source should be organised.")
+            .setSingleChoiceItems(labels, current) { dialog, which ->
+                store.setSourceType(sourceId, types[which])
+                dialog.dismiss()
+                scanLibrary()
+            }
+            .setNegativeButton("Keep automatic") { _, _ ->
+                store.setSourceType(sourceId, SourceType.MIXED)
+                scanLibrary()
+            }
+            .show()
     }
 
     private fun showTmdbSetup() {
@@ -374,7 +399,12 @@ class MainActivity : Activity() {
         Thread {
             val previous = store.loadLibrary().associateBy { it.uri }
             val now = System.currentTimeMillis()
-            var scanned = MediaScanner(this).scan(roots, mediaStoreVolumes).map { item ->
+            val sourceTypes = (roots + mediaStoreVolumes).associateWith(store::sourceType)
+            var scanned = MediaScanner(this).scan(
+                roots,
+                mediaStoreVolumes,
+                sourceTypes,
+            ).map { item ->
                 carryCachedMetadata(item, previous[item.uri], now)
             }
 
@@ -426,6 +456,7 @@ class MainActivity : Activity() {
         visibleCards = when (section) {
             Section.MOVIES -> movieCards()
             Section.TV -> tvCards()
+            Section.VIDEOS -> videoCards()
             Section.CONTINUE -> continueCards()
             Section.RECENT -> recentCards()
         }
@@ -440,6 +471,7 @@ class MainActivity : Activity() {
                 when (section) {
                     Section.MOVIES -> "No movies found."
                     Section.TV -> "No TV episodes found."
+                    Section.VIDEOS -> "No ordinary videos found."
                     Section.CONTINUE -> "Nothing to continue watching."
                     Section.RECENT -> "No recently added videos yet."
                 }
@@ -448,6 +480,7 @@ class MainActivity : Activity() {
                 val label = when (section) {
                     Section.MOVIES -> "movie"
                     Section.TV -> "show"
+                    Section.VIDEOS -> "video"
                     Section.CONTINUE -> "video"
                     Section.RECENT -> "recent item"
                 }
@@ -573,6 +606,21 @@ class MainActivity : Activity() {
                 )
             }
             .sortedBy { it.title.lowercase() }
+
+    private fun videoCards(): List<LibraryCard> =
+        library
+            .filter { it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN }
+            .filter { matchesSearch(it) }
+            .sortedBy { it.displayTitle.lowercase() }
+            .map { item ->
+                LibraryCard(
+                    key = "video:" + item.uri,
+                    title = item.displayTitle,
+                    subtitle = if (store.isWatched(item.uri)) "Watched" else "",
+                    posterPath = item.posterPath,
+                    items = listOf(item),
+                )
+            }
 
     private fun recentCards(): List<LibraryCard> =
         library
