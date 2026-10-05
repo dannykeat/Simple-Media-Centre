@@ -22,6 +22,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import org.simplemediacentre.library.LibraryAlgorithms
+import org.simplemediacentre.library.LibraryMetricsCalculator
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.MediaIdentity
 import org.simplemediacentre.library.MediaScanner
@@ -225,16 +226,7 @@ class MainActivity : Activity() {
         }
 
     private fun updateSectionButtons() {
-        val movieCount = library.count { it.kind == MediaRecord.Kind.MOVIE }
-        val tvCount = library
-            .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
-            .groupBy { item ->
-                LibraryAlgorithms.tvShowKey(item)
-            }
-            .size
-        val videoCount = library.count {
-            it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN
-        }
+        val metrics = LibraryMetricsCalculator.calculate(library)
         val continueCount = library.count { item ->
             PlaybackRules.canResume(
                 store.playbackPosition(item.uri),
@@ -246,9 +238,9 @@ class MainActivity : Activity() {
         sectionButtons.forEach { (target, button) ->
             val label = when (target) {
                 Section.HOME -> "Home"
-                Section.MOVIES -> sectionLabel("Movies", movieCount)
-                Section.TV -> sectionLabel("TV", tvCount)
-                Section.VIDEOS -> sectionLabel("Videos", videoCount)
+                Section.MOVIES -> sectionLabel("Movies", metrics.movies)
+                Section.TV -> sectionLabel("TV", metrics.tvShows)
+                Section.VIDEOS -> sectionLabel("Videos", metrics.videos)
                 Section.CONTINUE -> sectionLabel("Continue", continueCount)
                 Section.RECENT -> sectionLabel("Recent", recentCount)
             }
@@ -851,18 +843,7 @@ class MainActivity : Activity() {
     }
 
     private fun showAbout() {
-        val movieCount = library.count { it.kind == MediaRecord.Kind.MOVIE }
-        val episodeCount = library.count { it.kind == MediaRecord.Kind.TV_EPISODE }
-        val showCount = library
-            .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
-            .groupBy { item ->
-                LibraryAlgorithms.tvShowKey(item)
-            }
-            .size
-        val videoCount = library.count {
-            it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN
-        }
-        val matchedCount = library.count { it.metadataId != null }
+        val metrics = LibraryMetricsCalculator.calculate(library)
         val sourceCount = store.roots().size + store.mediaStoreVolumes().sumOf { volume ->
             store.mediaStoreFolders(volume).size.takeIf { it > 0 } ?: 1
         }
@@ -875,7 +856,7 @@ class MainActivity : Activity() {
                     "TV shows: " + showCount + " (" + episodeCount + " episodes)\n" +
                     "Videos: " + videoCount + "\n" +
                     "Sources: " + sourceCount + "\n" +
-                    "Metadata matched: " + matchedCount + "/" + library.size + "\n\n" +
+                    "Metadata matched: " + metrics.metadataMatched + "/" + library.size + "\n\n" +
                     "Local-first video library and player.\n\n" +
                     "This product uses the TMDB API but is not endorsed or certified by TMDB."
             )
