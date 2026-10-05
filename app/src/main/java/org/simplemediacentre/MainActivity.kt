@@ -520,6 +520,7 @@ class MainActivity : Activity() {
             "Reconnect storage access",
             "Rescan library",
             "Metadata",
+            "Diagnostics",
             "About",
         )
 
@@ -532,7 +533,8 @@ class MainActivity : Activity() {
                     2 -> chooseMediaStoreVolume()
                     3 -> scanLibrary()
                     4 -> showMetadataSettings()
-                    5 -> showAbout()
+                    5 -> showDiagnostics()
+                    6 -> showAbout()
                 }
             }
             .setNegativeButton("Close", null)
@@ -790,6 +792,60 @@ class MainActivity : Activity() {
                 }
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showDiagnostics() {
+        val configuredVolumes = store.mediaStoreVolumes().sorted()
+        val availableVolumes = if (hasVideoReadPermission()) {
+            availableMediaStoreVolumes()
+        } else {
+            emptySet()
+        }
+        val persistedGrants = contentResolver.persistedUriPermissions
+            .count { it.isReadPermission }
+        val matched = library.count { it.metadataId != null }
+
+        val message = buildString {
+            append("Version: ")
+            append(BuildConfig.VERSION_NAME)
+            append("\nVideo permission: ")
+            append(if (hasVideoReadPermission()) "granted" else "not granted")
+            append("\nSAF sources: ")
+            append(store.roots().size)
+            append(" • persisted grants: ")
+            append(persistedGrants)
+            append("\nMediaStore volumes: ")
+            append(configuredVolumes.size)
+
+            configuredVolumes.forEach { volume ->
+                append("\n  • ")
+                append(volume)
+                append(if (volume in availableVolumes) " — available" else " — unavailable")
+                val folders = store.mediaStoreFolders(volume)
+                if (folders.isNotEmpty()) {
+                    append(" • ")
+                    append(folders.size)
+                    append(" selected folder")
+                    if (folders.size != 1) append("s")
+                }
+            }
+
+            append("\nLibrary items: ")
+            append(library.size)
+            append("\nMetadata: ")
+            append(if (store.tmdbToken().isNotBlank()) "TMDB configured" else "local only")
+            append(" • ")
+            append(matched)
+            append("/")
+            append(library.size)
+            append(" matched")
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Diagnostics")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
             .show()
     }
 
