@@ -659,18 +659,27 @@ class MainActivity : Activity() {
                 carryCachedMetadata(item, previous[item.uri], now)
             }
 
-            val token = store.tmdbToken()
-            if (token.isNotBlank()) {
-                runOnUiThread {
-                    statusView.text = "Matching unmatched videos with TMDB…"
-                }
-                scanned = LibraryEnricher(TmdbMetadataProvider(token)).enrich(scanned)
-            }
-
             store.saveLibrary(scanned)
 
             runOnUiThread {
                 library = scanned
+                progressView.visibility = View.GONE
+                renderLibrary()
+            }
+
+            val token = store.tmdbToken()
+            if (token.isBlank()) return@Thread
+
+            runOnUiThread {
+                progressView.visibility = View.VISIBLE
+                statusView.text = "Library ready • matching unmatched Movies and TV with TMDB…"
+            }
+
+            val enriched = LibraryEnricher(TmdbMetadataProvider(token)).enrich(scanned)
+            store.saveLibrary(enriched)
+
+            runOnUiThread {
+                library = enriched
                 progressView.visibility = View.GONE
                 renderLibrary()
             }
