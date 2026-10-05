@@ -57,11 +57,20 @@ class TmdbMetadataProvider(
                         overview = result.optNullableString("overview"),
                         posterPath = result.optNullableString("poster_path"),
                         backdropPath = result.optNullableString("backdrop_path"),
+                        year = resultYear(endpoint, result),
                         genres = genreNames(endpoint, result),
                     )
                 )
             }
         }
+    }
+
+    private fun resultYear(endpoint: String, item: JSONObject): Int? {
+        val key = if (endpoint == "tv") "first_air_date" else "release_date"
+        return item.optString(key)
+            .takeIf { it.length >= 4 }
+            ?.take(4)
+            ?.toIntOrNull()
     }
 
     private fun genreNames(endpoint: String, item: JSONObject): List<String> {
