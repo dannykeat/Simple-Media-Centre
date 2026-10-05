@@ -855,6 +855,8 @@ class MainActivity : Activity() {
         token: String,
         generation: Int,
     ): List<MediaRecord> {
+        if (generation != metadataGeneration) return base
+
         val enricher = LibraryEnricher(TmdbMetadataProvider(token))
         val working = base.toMutableList()
         val indexesByUri = working.indices.associateBy { working[it].uri }
