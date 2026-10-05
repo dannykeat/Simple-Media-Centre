@@ -1579,7 +1579,7 @@ class MainActivity : Activity() {
             .setTitle(episode.episodeDisplayTitle)
             .setMessage(summary)
             .setPositiveButton(
-                if (position > 30_000L && !watched) "Resume" else "Play"
+                if (PlaybackRules.canResume(position, watched)) "Resume" else "Play"
             ) { _, _ -> play(episode) }
             .setNeutralButton("Actions") { _, _ ->
                 showSingleItemActions(
@@ -1615,7 +1615,7 @@ class MainActivity : Activity() {
             .setMessage(summary)
             .setPositiveButton(if (card.items.size == 1) {
                 val position = store.playbackPosition(card.items.first().uri)
-                if (PlaybackRules.canResume(position, store.isWatched(card.items.first()).uri)) "Resume" else "Play"
+                if (PlaybackRules.canResume(position, store.isWatched(card.items.first().uri))) "Resume" else "Play"
             } else {
                 "Episodes"
             }) { _, _ ->
