@@ -30,6 +30,7 @@ import org.simplemediacentre.model.SourceType
 
 class MainActivity : Activity() {
     private enum class Section {
+        HOME,
         MOVIES,
         TV,
         VIDEOS,
@@ -45,7 +46,7 @@ class MainActivity : Activity() {
 
     private var library: List<MediaRecord> = emptyList()
     private var visibleCards: List<LibraryCard> = emptyList()
-    private var section = Section.MOVIES
+    private var section = Section.HOME
     private var searchQuery = ""
     private var movieSort = MovieSort.TITLE
 
@@ -84,6 +85,7 @@ class MainActivity : Activity() {
             val sections = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
 
+                addView(sectionButton("Home", Section.HOME))
                 addView(sectionButton("Movies", Section.MOVIES))
                 addView(sectionButton("TV Shows", Section.TV))
                 addView(sectionButton("Videos", Section.VIDEOS))
@@ -522,6 +524,7 @@ class MainActivity : Activity() {
 
     private fun renderLibrary() {
         visibleCards = when (section) {
+            Section.HOME -> homeCards()
             Section.MOVIES -> movieCards()
             Section.TV -> tvCards()
             Section.VIDEOS -> videoCards()
@@ -537,6 +540,7 @@ class MainActivity : Activity() {
                 "No supported video files found."
             visibleCards.isEmpty() ->
                 when (section) {
+                    Section.HOME -> "Your library is empty."
                     Section.MOVIES -> "No movies found."
                     Section.TV -> "No TV episodes found."
                     Section.VIDEOS -> "No ordinary videos found."
@@ -546,6 +550,7 @@ class MainActivity : Activity() {
             else -> {
                 val matched = library.count { it.metadataId != null }
                 val label = when (section) {
+                    Section.HOME -> "home item"
                     Section.MOVIES -> "movie"
                     Section.TV -> "show"
                     Section.VIDEOS -> "video"
@@ -557,6 +562,17 @@ class MainActivity : Activity() {
                     if (store.tmdbToken().isNotBlank()) " • " + matched + " files matched" else ""
             }
         }
+    }
+
+    private fun homeCards(): List<LibraryCard> {
+        val continueItems = continueCards().take(12)
+        val recentItems = recentCards().take(12)
+        val unwatchedMovies = movieCards().filter { card ->
+            card.items.firstOrNull()?.let { !store.isWatched(it.uri) } == true
+        }.take(12)
+
+        return (continueItems + recentItems + unwatchedMovies)
+            .distinctBy { it.items.firstOrNull()?.uri ?: it.key }
     }
 
     private fun movieCards(): List<LibraryCard> {
