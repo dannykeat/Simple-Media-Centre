@@ -23,6 +23,7 @@ class LibraryStore(context: Context) {
         preferences.edit()
             .putStringSet(KEY_ROOTS, updated)
             .remove(KEY_SOURCE_TYPE_PREFIX + uri)
+            .remove(KEY_SOURCE_LABEL_PREFIX + uri)
             .apply()
     }
 
@@ -39,9 +40,12 @@ class LibraryStore(context: Context) {
         val editor = preferences.edit()
             .putStringSet(KEY_MEDIASTORE_VOLUMES, updated)
             .remove(KEY_SOURCE_TYPE_PREFIX + volumeName)
+            .remove(KEY_SOURCE_LABEL_PREFIX + volumeName)
             .remove(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName)
         mediaStoreFolders(volumeName).forEach { folder ->
-            editor.remove(KEY_SOURCE_TYPE_PREFIX + mediaStoreFolderSourceId(volumeName, folder))
+            val sourceId = mediaStoreFolderSourceId(volumeName, folder)
+            editor.remove(KEY_SOURCE_TYPE_PREFIX + sourceId)
+            editor.remove(KEY_SOURCE_LABEL_PREFIX + sourceId)
         }
         editor.apply()
     }
@@ -58,7 +62,9 @@ class LibraryStore(context: Context) {
         val editor = preferences.edit()
             .putStringSet(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName, normalized)
         (previous - normalized).forEach { removed ->
-            editor.remove(KEY_SOURCE_TYPE_PREFIX + mediaStoreFolderSourceId(volumeName, removed))
+            val sourceId = mediaStoreFolderSourceId(volumeName, removed)
+            editor.remove(KEY_SOURCE_TYPE_PREFIX + sourceId)
+            editor.remove(KEY_SOURCE_LABEL_PREFIX + sourceId)
         }
         editor.apply()
     }
@@ -75,6 +81,22 @@ class LibraryStore(context: Context) {
         preferences.edit()
             .putString(KEY_SOURCE_TYPE_PREFIX + sourceId, type.name)
             .apply()
+    }
+
+    fun sourceDisplayName(sourceId: String): String? =
+        preferences.getString(KEY_SOURCE_LABEL_PREFIX + sourceId, null)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+
+    fun setSourceDisplayName(sourceId: String, name: String) {
+        val trimmed = name.trim()
+        val editor = preferences.edit()
+        if (trimmed.isBlank()) {
+            editor.remove(KEY_SOURCE_LABEL_PREFIX + sourceId)
+        } else {
+            editor.putString(KEY_SOURCE_LABEL_PREFIX + sourceId, trimmed)
+        }
+        editor.apply()
     }
 
     fun tmdbToken(): String =
@@ -187,6 +209,7 @@ class LibraryStore(context: Context) {
         const val KEY_POSITION_PREFIX = "position:"
         const val KEY_WATCHED_PREFIX = "watched:"
         const val KEY_SOURCE_TYPE_PREFIX = "source_type:"
+        const val KEY_SOURCE_LABEL_PREFIX = "source_label:"
         const val KEY_MEDIASTORE_FOLDERS_PREFIX = "mediastore_folders:"
     }
 }
