@@ -138,6 +138,7 @@ class LibraryStore(context: Context) {
                             season = item.optIntOrNull("season"),
                             episode = item.optIntOrNull("episode"),
                             modifiedAt = item.optLong("modifiedAt", 0L),
+                            sizeBytes = item.optLong("sizeBytes", 0L),
                             addedAt = item.optLong("addedAt", 0L),
                             metadataId = item.optIntOrNull("metadataId"),
                             metadataTitle = item.optStringOrNull("metadataTitle"),
@@ -170,6 +171,7 @@ class LibraryStore(context: Context) {
                     .putNullable("season", item.season)
                     .putNullable("episode", item.episode)
                     .put("modifiedAt", item.modifiedAt)
+                    .put("sizeBytes", item.sizeBytes)
                     .put("addedAt", item.addedAt)
                     .putNullable("metadataId", item.metadataId)
                     .putNullable("metadataTitle", item.metadataTitle)
