@@ -55,6 +55,8 @@ class MainActivity : Activity() {
     @Volatile
     private var metadataGeneration = 0
 
+    private var lastFocusedCardKey: String? = null
+
     private var movieSort = MovieSort.TITLE
     private var movieFilter = MovieFilter.ALL
     private var movieDecade: Int? = null
@@ -1826,6 +1828,9 @@ class MainActivity : Activity() {
     }
 
     private fun play(item: MediaRecord) {
+        lastFocusedCardKey = visibleCards
+            .firstOrNull { card -> card.items.any { it.uri == item.uri } }
+            ?.key
         startActivity(
             Intent(this, PlayerActivity::class.java)
                 .putExtra(PlayerActivity.EXTRA_URI, item.uri)
@@ -1864,7 +1869,21 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::gridView.isInitialized) renderLibrary()
+        if (::gridView.isInitialized) {
+            renderLibrary()
+            restoreGridSelection()
+        }
+    }
+
+    private fun restoreGridSelection() {
+        val key = lastFocusedCardKey ?: return
+        val index = visibleCards.indexOfFirst { it.key == key }
+        if (index < 0) return
+
+        gridView.post {
+            gridView.setSelection(index)
+            gridView.requestFocus()
+        }
     }
 
     private fun formatPosition(positionMs: Long): String {
