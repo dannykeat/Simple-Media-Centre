@@ -934,8 +934,16 @@ class MainActivity : Activity() {
             }
         }
 
-        val continueItems = continueCards().take(8)
-        val recentItems = recentCards().take(8)
+        val continueItems = continueCards()
+            .take(8)
+            .map { card ->
+                card.copy(subtitle = "Continue • " + card.subtitle)
+            }
+        val recentItems = recentCards()
+            .take(8)
+            .map { card ->
+                card.copy(subtitle = "Recently added • " + card.subtitle)
+            }
 
         return destinations + (continueItems + recentItems)
             .distinctBy { it.items.firstOrNull()?.uri ?: it.key }
