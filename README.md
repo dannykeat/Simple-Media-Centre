@@ -15,7 +15,7 @@ The current working slice provides:
 - recursive indexing of common video formats;
 - movie and TV-episode filename recognition, including movie years;
 - Movies, TV Shows, Videos and Continue Watching library sections;
-- local library search, Movies/TV/Videos sorting, watched filtering, movie decade filtering and A–Z jump navigation for large collections;
+- local library search, Movies/TV/Videos sorting, watched filtering, movie decade/genre filtering and A–Z jump navigation for large collections;
 - TV Show → Season → Episode browsing and folder-oriented Videos browsing;
 - friendly source names and cached-library preservation when a configured USB drive is temporarily disconnected;
 - persistent playback diagnostics with retry and external-player fallback;
@@ -24,7 +24,7 @@ The current working slice provides:
 - touch and D-pad focusable poster-grid navigation;
 - Media3/ExoPlayer playback with Android TV D-pad control support;
 - per-file resume position;
-- optional TMDB movie/TV-series matching using a user-supplied API Read Access Token, with local scan results available before metadata enrichment completes;
+- optional TMDB movie/TV-series matching using a user-supplied API Read Access Token, with conservative automatic matching, genre categories, release-year enrichment, incremental progress, and local scan results available before metadata enrichment completes;
 - cached TMDB IDs, titles, summaries and artwork paths without storing credentials in Git.
 
 Local scanning and playback remain usable when metadata is disabled or unavailable.
