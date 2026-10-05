@@ -488,14 +488,23 @@ class MainActivity : Activity() {
             store.mediaStoreVolumes().sorted().forEach { volume ->
                 val folders = store.mediaStoreFolders(volume).sorted()
                 if (folders.isEmpty()) {
-                    add(ConfiguredSource("volume", volume, volume, volumeName = volume))
+                    add(
+                        ConfiguredSource(
+                            "volume",
+                            volume,
+                            store.sourceDisplayName(volume) ?: volume,
+                            volumeName = volume,
+                        )
+                    )
                 } else {
                     folders.forEach { folder ->
                         add(
                             ConfiguredSource(
                                 kind = "mediafolder",
                                 id = store.mediaStoreFolderSourceId(volume, folder),
-                                label = folder,
+                                label = store.sourceDisplayName(
+                                    store.mediaStoreFolderSourceId(volume, folder)
+                                ) ?: folder,
                                 volumeName = volume,
                                 folder = folder,
                             )
@@ -519,17 +528,18 @@ class MainActivity : Activity() {
             .setItems(labels) { _, which ->
                 val source = sources[which]
                 val actions = if (source.kind == "mediafolder" || source.kind == "volume") {
-                    arrayOf("Change type", "Choose storage folders", "Remove source")
+                    arrayOf("Rename", "Change type", "Choose storage folders", "Remove source")
                 } else {
-                    arrayOf("Change type", "Remove source")
+                    arrayOf("Rename", "Change type", "Remove source")
                 }
 
                 AlertDialog.Builder(this)
                     .setTitle(source.label)
                     .setItems(actions) { _, action ->
                         when {
-                            action == 0 -> chooseSourceType(source.id)
-                            source.kind in setOf("mediafolder", "volume") && action == 1 ->
+                            action == 0 -> renameSource(source)
+                            action == 1 -> chooseSourceType(source.id)
+                            source.kind in setOf("mediafolder", "volume") && action == 2 ->
                                 chooseMediaStoreFolders(source.volumeName ?: source.id)
                             else -> confirmRemoveSource(source)
                         }
@@ -543,11 +553,37 @@ class MainActivity : Activity() {
     }
 
     private fun sourceLabel(sourceId: String): String =
-        runCatching {
-            android.net.Uri.parse(sourceId).lastPathSegment
-                ?.substringAfterLast(':')
-                ?.takeIf { it.isNotBlank() }
-        }.getOrNull() ?: "Media folder"
+        store.sourceDisplayName(sourceId)
+            ?: runCatching {
+                android.net.Uri.parse(sourceId).lastPathSegment
+                    ?.substringAfterLast(':')
+                    ?.takeIf { it.isNotBlank() }
+            }.getOrNull()
+            ?: sourceId.substringAfterLast('|').takeIf { it.isNotBlank() }
+            ?: "Media folder"
+
+    private fun renameSource(source: ConfiguredSource) {
+        val input = EditText(this).apply {
+            setText(source.label)
+            selectAll()
+            hint = "Source name"
+            isSingleLine = true
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Rename source")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                store.setSourceDisplayName(source.id, input.text.toString())
+                renderLibrary()
+            }
+            .setNeutralButton("Reset") { _, _ ->
+                store.setSourceDisplayName(source.id, "")
+                renderLibrary()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     private fun confirmRemoveSource(source: ConfiguredSource) {
         AlertDialog.Builder(this)
@@ -1114,7 +1150,11 @@ class MainActivity : Activity() {
                     ?.trim('/')
                     ?.substringBefore('/')
                     ?.takeIf { it.isNotBlank() }
-                val label = folder ?: representative.sourceId?.let(::sourceLabel) ?: "Videos"
+                val label = representative.sourceId
+                    ?.let(store::sourceDisplayName)
+                    ?: folder
+                    ?: representative.sourceId?.let(::sourceLabel)
+                    ?: "Videos"
 
                 if (ordered.size == 1 && folder == null) {
                     LibraryCard(
