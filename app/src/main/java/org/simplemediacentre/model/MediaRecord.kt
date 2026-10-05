@@ -22,6 +22,7 @@ data class MediaRecord(
     enum class Kind {
         MOVIE,
         TV_EPISODE,
+        VIDEO,
         UNKNOWN,
     }
 
