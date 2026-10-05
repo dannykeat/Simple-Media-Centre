@@ -34,7 +34,7 @@
 - [x] poster-grid presentation with local video-frame fallback
 - [x] initial Android TV / D-pad focus treatment
 - [x] Recently Added view
-- [x] search, Movies/TV/Videos sorting, A–Z jump navigation, watched filters and movie decade filters
+- [x] search, Movies/TV/Videos sorting, A–Z jump navigation, watched filters, decade filters and TMDB genre categories
 - [x] watched/unwatched state
 - [x] subtitle and audio-track selection
 - [x] multiple-source management and Movies / TV Shows / Videos / Mixed source typing
@@ -58,7 +58,8 @@
 - [ ] database-backed library once schema requirements stabilise
 - [ ] detect removed/renamed files
 - [ ] scan cancellation and progress
-- [ ] metadata refresh policy and cancellable/batched enrichment
+- [x] batched/incremental metadata enrichment with stale-job cancellation
+- [ ] long-term metadata refresh/expiry policy
 - [x] publish local scan results before optional online metadata enrichment
 - [ ] migration/versioning tests
 - [ ] broader device, codec and USB-drive validation
