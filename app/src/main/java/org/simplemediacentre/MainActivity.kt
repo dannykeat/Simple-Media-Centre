@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.InputType
+import android.graphics.Color
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -72,15 +73,20 @@ class MainActivity : Activity() {
 
     private fun buildUi(): View {
         val density = resources.displayMetrics.density
-        val padding = (16 * density).toInt()
+        val tvScale = resources.configuration.smallestScreenWidthDp >= 600
+        val padding = ((if (tvScale) 20 else 16) * density).toInt()
+        val gridColumnWidth = ((if (tvScale) 200 else 170) * density).toInt()
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(8, 8, 8))
             setPadding(padding, padding, padding, padding)
 
             addView(TextView(context).apply {
                 text = "Simple Media Centre"
-                textSize = 26f
+                textSize = if (tvScale) 30f else 26f
+                setTextColor(Color.WHITE)
+                setPadding(0, 0, 0, padding / 2)
             })
 
             val sections = LinearLayout(context).apply {
@@ -121,7 +127,8 @@ class MainActivity : Activity() {
             addView(progressView)
 
             statusView = TextView(context).apply {
-                textSize = 14f
+                textSize = if (tvScale) 16f else 14f
+                setTextColor(Color.LTGRAY)
                 setPadding(0, padding / 2, 0, padding / 2)
             }
             addView(statusView)
@@ -130,9 +137,9 @@ class MainActivity : Activity() {
 
             gridView = GridView(context).apply {
                 numColumns = GridView.AUTO_FIT
-                columnWidth = (170 * density).toInt()
-                horizontalSpacing = (12 * density).toInt()
-                verticalSpacing = (12 * density).toInt()
+                columnWidth = gridColumnWidth
+                horizontalSpacing = ((if (tvScale) 18 else 12) * density).toInt()
+                verticalSpacing = ((if (tvScale) 18 else 12) * density).toInt()
                 stretchMode = GridView.STRETCH_COLUMN_WIDTH
                 gravity = Gravity.CENTER
                 clipToPadding = false
