@@ -697,9 +697,9 @@ class MainActivity : Activity() {
                 )
                 runOnUiThread {
                     library = working.toList()
+                    renderLibrary()
                     statusView.text =
                         "Library ready • metadata " + completed + "/" + candidates.size
-                    renderLibrary()
                 }
             }
 
