@@ -122,6 +122,11 @@ class MainActivity : Activity() {
                 })
 
                 addView(Button(context).apply {
+                    text = "Sources"
+                    setOnClickListener { showSources() }
+                })
+
+                addView(Button(context).apply {
                     text = "Rescan"
                     setOnClickListener { scanLibrary() }
                 })
@@ -347,6 +352,63 @@ class MainActivity : Activity() {
                 store.setSourceType(sourceId, SourceType.MIXED)
                 scanLibrary()
             }
+            .show()
+    }
+
+    private fun showSources() {
+        val roots = store.roots().sorted()
+        val volumes = store.mediaStoreVolumes().sorted()
+        val sources = roots.map { Triple("folder", it, sourceLabel(it)) } +
+            volumes.map { Triple("volume", it, it) }
+
+        if (sources.isEmpty()) {
+            Toast.makeText(this, "No media sources configured.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val labels = sources.map { (_, id, label) ->
+            label + " • " + store.sourceType(id).label
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Media sources")
+            .setItems(labels) { _, which ->
+                val (kind, id, label) = sources[which]
+                val actions = arrayOf("Change type", "Remove source")
+                AlertDialog.Builder(this)
+                    .setTitle(label)
+                    .setItems(actions) { _, action ->
+                        if (action == 0) {
+                            chooseSourceType(id)
+                        } else {
+                            confirmRemoveSource(kind, id, label)
+                        }
+                    }
+                    .setNegativeButton("Close", null)
+                    .show()
+            }
+            .setPositiveButton("Add source") { _, _ -> chooseMediaFolder() }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun sourceLabel(sourceId: String): String =
+        runCatching {
+            android.net.Uri.parse(sourceId).lastPathSegment
+                ?.substringAfterLast(':')
+                ?.takeIf { it.isNotBlank() }
+        }.getOrNull() ?: "Media folder"
+
+    private fun confirmRemoveSource(kind: String, id: String, label: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Remove source?")
+            .setMessage("Stop scanning " + label + "? Files are not deleted.")
+            .setPositiveButton("Remove") { _, _ ->
+                if (kind == "folder") store.removeRoot(id)
+                else store.removeMediaStoreVolume(id)
+                scanLibrary()
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
