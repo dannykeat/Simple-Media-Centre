@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import org.simplemediacentre.model.MediaRecord
+import org.simplemediacentre.model.SourceType
 
 class MediaScanner(private val context: Context) {
     private val videoExtensions = setOf(
@@ -16,16 +17,17 @@ class MediaScanner(private val context: Context) {
     fun scan(
         rootUris: Collection<String>,
         mediaStoreVolumes: Collection<String> = emptyList(),
+        sourceTypes: Map<String, SourceType> = emptyMap(),
     ): List<MediaRecord> {
         val results = mutableListOf<MediaRecord>()
 
         rootUris.forEach { rawUri ->
             val root = DocumentFile.fromTreeUri(context, Uri.parse(rawUri)) ?: return@forEach
-            scanDirectory(root, results)
+            scanDirectory(root, results, sourceTypes[rawUri] ?: SourceType.MIXED)
         }
 
         mediaStoreVolumes.forEach { volumeName ->
-            scanMediaStoreVolume(volumeName, results)
+            scanMediaStoreVolume(volumeName, results, sourceTypes[volumeName] ?: SourceType.MIXED)
         }
 
         return results
@@ -37,7 +39,7 @@ class MediaScanner(private val context: Context) {
             )
     }
 
-    private fun scanDirectory(directory: DocumentFile, results: MutableList<MediaRecord>) {
+    private fun scanDirectory(directory: DocumentFile, results: MutableList<MediaRecord>, sourceType: SourceType) {
         val children = try {
             directory.listFiles()
         } catch (_: SecurityException) {
@@ -46,7 +48,7 @@ class MediaScanner(private val context: Context) {
 
         children.forEach { file ->
             when {
-                file.isDirectory -> scanDirectory(file, results)
+                file.isDirectory -> scanDirectory(file, results, sourceType)
                 file.isFile && isVideo(file) -> {
                     val name = file.name ?: return@forEach
                     val parsed = FilenameParser.parse(name)
@@ -54,7 +56,7 @@ class MediaScanner(private val context: Context) {
                         uri = file.uri.toString(),
                         fileName = name,
                         title = parsed.title,
-                        kind = parsed.kind,
+                        kind = kindFor(parsed.kind, sourceType),
                         year = parsed.year,
                         season = parsed.season,
                         episode = parsed.episode,
@@ -68,6 +70,7 @@ class MediaScanner(private val context: Context) {
     private fun scanMediaStoreVolume(
         volumeName: String,
         results: MutableList<MediaRecord>,
+        sourceType: SourceType,
     ) {
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Video.Media.getContentUri(volumeName)
@@ -105,7 +108,7 @@ class MediaScanner(private val context: Context) {
                         uri = ContentUris.withAppendedId(collection, id).toString(),
                         fileName = name,
                         title = parsed.title,
-                        kind = parsed.kind,
+                        kind = kindFor(parsed.kind, sourceType),
                         year = parsed.year,
                         season = parsed.season,
                         episode = parsed.episode,
@@ -119,6 +122,14 @@ class MediaScanner(private val context: Context) {
             return
         }
     }
+
+    private fun kindFor(parsed: MediaRecord.Kind, sourceType: SourceType): MediaRecord.Kind =
+        when (sourceType) {
+            SourceType.MOVIES -> MediaRecord.Kind.MOVIE
+            SourceType.TV_SHOWS -> MediaRecord.Kind.TV_EPISODE
+            SourceType.VIDEOS -> MediaRecord.Kind.VIDEO
+            SourceType.MIXED -> parsed
+        }
 
     private fun isVideo(file: DocumentFile): Boolean {
         if (file.type?.startsWith("video/") == true) return true
