@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     private var movieSort = MovieSort.TITLE
     private var movieFilter = MovieFilter.ALL
     private var movieDecade: Int? = null
+    private var movieGenre: String? = null
     private var tvSort = LibrarySort.TITLE
     private var videoSort = LibrarySort.TITLE
 
@@ -707,6 +708,7 @@ class MainActivity : Activity() {
                 overview = null,
                 posterPath = null,
                 backdropPath = null,
+                genres = emptyList(),
                 episodeMetadataId = null,
                 episodeTitle = null,
                 episodeOverview = null,
@@ -931,6 +933,7 @@ class MainActivity : Activity() {
             overview = previous.overview,
             posterPath = previous.posterPath,
             backdropPath = previous.backdropPath,
+            genres = previous.genres,
             episodeMetadataId = previous.episodeMetadataId,
             episodeTitle = previous.episodeTitle,
             episodeOverview = previous.episodeOverview,
@@ -975,7 +978,7 @@ class MainActivity : Activity() {
                 val suffix = if (visibleCards.size == 1) "" else "s"
                 visibleCards.size.toString() + " " + label + suffix +
                     (if (searchQuery.isNotBlank()) " • Search: " + searchQuery else "") +
-                    (if (section == Section.MOVIES && (movieFilter != MovieFilter.ALL || movieDecade != null)) {
+                    (if (section == Section.MOVIES && (movieFilter != MovieFilter.ALL || movieDecade != null || movieGenre != null)) {
                         " • Filtered"
                     } else {
                         ""
@@ -1066,6 +1069,9 @@ class MainActivity : Activity() {
                     else -> item.year?.let { (it / 10) * 10 == decade } == true
                 }
             }
+            .filter { item ->
+                movieGenre?.let { genre -> genre in item.genres } ?: true
+            }
 
         val sorted = when (movieSort) {
             MovieSort.TITLE -> matching.sortedBy { it.displayTitle.lowercase() }
@@ -1084,10 +1090,11 @@ class MainActivity : Activity() {
                 LibraryCard(
                     key = item.uri,
                     title = item.displayTitle,
-                    subtitle = listOfNotNull(
-                        item.year?.toString(),
-                        if (store.isWatched(item.uri)) "Watched" else null,
-                    ).joinToString(" • "),
+                    subtitle = buildList {
+                        item.year?.let { add(it.toString()) }
+                        item.genres.take(2).forEach(::add)
+                        if (store.isWatched(item.uri)) add("Watched")
+                    }.joinToString(" • "),
                     posterPath = item.posterPath,
                     items = listOf(item),
                 )
@@ -1163,6 +1170,14 @@ class MainActivity : Activity() {
             .distinct()
             .sortedDescending()
             .toList()
+        val genres = library
+            .asSequence()
+            .filter { it.kind == MediaRecord.Kind.MOVIE }
+            .flatMap { it.genres.asSequence() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+            .toList()
 
         val labels = buildList {
             add("All movies")
@@ -1170,31 +1185,46 @@ class MainActivity : Activity() {
             add("Watched")
             decades.forEach { add(it.toString() + "s") }
             add("Unknown year")
+            genres.forEach { add("Genre: " + it) }
         }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle("Filter movies")
             .setItems(labels) { _, which ->
+                val decadeStart = 3
+                val unknownYearIndex = decadeStart + decades.size
+                val genreStart = unknownYearIndex + 1
+
                 when {
                     which == 0 -> {
                         movieFilter = MovieFilter.ALL
                         movieDecade = null
+                        movieGenre = null
                     }
                     which == 1 -> {
                         movieFilter = MovieFilter.UNWATCHED
                         movieDecade = null
+                        movieGenre = null
                     }
                     which == 2 -> {
                         movieFilter = MovieFilter.WATCHED
                         movieDecade = null
+                        movieGenre = null
                     }
-                    which in 3 until 3 + decades.size -> {
+                    which in decadeStart until unknownYearIndex -> {
                         movieFilter = MovieFilter.ALL
-                        movieDecade = decades[which - 3]
+                        movieDecade = decades[which - decadeStart]
+                        movieGenre = null
                     }
-                    else -> {
+                    which == unknownYearIndex -> {
                         movieFilter = MovieFilter.ALL
                         movieDecade = Int.MIN_VALUE
+                        movieGenre = null
+                    }
+                    which >= genreStart -> {
+                        movieFilter = MovieFilter.ALL
+                        movieDecade = null
+                        movieGenre = genres[which - genreStart]
                     }
                 }
                 renderLibrary()
@@ -1711,6 +1741,7 @@ class MainActivity : Activity() {
                         overview = candidate.overview,
                         posterPath = candidate.posterPath,
                         backdropPath = candidate.backdropPath,
+                        genres = candidate.genres,
                         episodeMetadataId = null,
                         episodeTitle = null,
                         episodeOverview = null,
