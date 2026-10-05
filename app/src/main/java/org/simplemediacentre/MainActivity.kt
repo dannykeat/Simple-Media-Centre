@@ -853,7 +853,12 @@ class MainActivity : Activity() {
                         store.migratePlaybackState(prior.uri, item.uri)
                     }
                 }
-                carryCachedMetadata(item, prior, now)
+                carryCachedMetadata(
+                    scanned = item,
+                    previous = prior,
+                    now = now,
+                    allowRenamedIdentity = moved != null,
+                )
             }
             val cachedUnavailable = previous.values.filter { item ->
                 item.sourceId
@@ -950,12 +955,13 @@ class MainActivity : Activity() {
         scanned: MediaRecord,
         previous: MediaRecord?,
         now: Long,
+        allowRenamedIdentity: Boolean = false,
     ): MediaRecord {
         if (previous == null) {
             return scanned.copy(addedAt = now)
         }
 
-        if (previous.fileName != scanned.fileName ||
+        if ((!allowRenamedIdentity && previous.fileName != scanned.fileName) ||
             previous.modifiedAt != scanned.modifiedAt ||
             previous.kind != scanned.kind
         ) {
