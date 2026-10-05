@@ -80,6 +80,11 @@ class PlayerActivity : Activity() {
         )
 
         val uri = Uri.parse(mediaUri)
+        if (!canReadMedia(uri)) {
+            showMediaAccessError(uri)
+            return
+        }
+
         exoPlayer.setMediaItem(
             MediaItem.Builder()
                 .setUri(uri)
@@ -93,6 +98,29 @@ class PlayerActivity : Activity() {
             exoPlayer.seekTo(savedPosition)
         }
         exoPlayer.playWhenReady = true
+    }
+
+    private fun canReadMedia(uri: Uri): Boolean {
+        if (uri.scheme != "content") return true
+        return try {
+            contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
+        } catch (_: SecurityException) {
+            false
+        } catch (_: java.io.FileNotFoundException) {
+            false
+        }
+    }
+
+    private fun showMediaAccessError(uri: Uri) {
+        AlertDialog.Builder(this)
+            .setTitle("Cannot access this video")
+            .setMessage(
+                "Android no longer allows Simple Media Centre to read this file. " +
+                    "The source may have been disconnected or its permission may have changed."
+            )
+            .setPositiveButton("Other player") { _, _ -> openExternalPlayer() }
+            .setNegativeButton("Close") { _, _ -> finish() }
+            .show()
     }
 
     private fun showPlaybackError(error: PlaybackException) {
