@@ -39,7 +39,8 @@
 - [x] subtitle and audio-track selection
 - [x] multiple-source management and Movies / TV Shows / Videos / Mixed source typing
 - [x] MediaStore subfolder selection with independent per-folder content types
-- [ ] background/resumable rescans for large libraries
+- [x] background scans with live progress and cooperative cancellation
+- [ ] resume an interrupted scan after process/app restart
 - [ ] further visual polish and responsive phone/tablet/TV sizing
 - [x] TV Show → Season → Episode browsing
 - [x] configuration consolidated under Settings
@@ -56,8 +57,8 @@
 ## M3 — robustness
 
 - [ ] database-backed library once schema requirements stabilise
-- [ ] detect removed/renamed files
-- [ ] scan cancellation and progress
+- [x] detect removed files on rescan and preserve state across safely detected renames/moves
+- [x] scan cancellation and progress
 - [x] batched/incremental metadata enrichment with stale-job cancellation
 - [ ] long-term metadata refresh/expiry policy
 - [x] publish local scan results before optional online metadata enrichment
