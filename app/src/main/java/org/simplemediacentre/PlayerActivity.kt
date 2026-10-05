@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import org.simplemediacentre.library.LibraryStore
+import org.simplemediacentre.library.PlaybackRules
 import org.simplemediacentre.model.MediaRecord
 import java.util.Locale
 
@@ -510,7 +511,7 @@ class PlayerActivity : Activity() {
         player?.let { currentPlayer ->
             val duration = currentPlayer.duration
             val current = currentPlayer.currentPosition
-            val finished = duration > 0 && current >= duration - 60_000L
+            val finished = PlaybackRules.isFinished(current, duration)
             val positionToSave = if (finished) 0L else current
             store.savePlaybackPosition(mediaUri, positionToSave)
             if (current > 0L) {
