@@ -10,6 +10,7 @@ import org.simplemediacentre.model.MediaRecord
 import org.simplemediacentre.model.SourceType
 
 class MediaScanner(private val context: Context) {
+    private data class ScanCounter(var count: Int = 0)
     private val videoExtensions = setOf(
         "mkv", "mp4", "m4v", "avi", "mov", "webm", "mpeg", "mpg", "ts", "m2ts"
     )
@@ -19,8 +20,10 @@ class MediaScanner(private val context: Context) {
         mediaStoreVolumes: Collection<String> = emptyList(),
         sourceTypes: Map<String, SourceType> = emptyMap(),
         mediaStoreFolders: Map<String, Set<String>> = emptyMap(),
+        onProgress: ((Int) -> Unit)? = null,
     ): List<MediaRecord> {
         val results = mutableListOf<MediaRecord>()
+        val counter = ScanCounter()
 
         rootUris.forEach { rawUri ->
             val root = DocumentFile.fromTreeUri(context, Uri.parse(rawUri)) ?: return@forEach
@@ -30,6 +33,8 @@ class MediaScanner(private val context: Context) {
                 sourceType = sourceTypes[rawUri] ?: SourceType.MIXED,
                 sourceId = rawUri,
                 relativePath = "",
+                counter = counter,
+                onProgress = onProgress,
             )
         }
 
@@ -40,8 +45,12 @@ class MediaScanner(private val context: Context) {
                 volumeSourceType = sourceTypes[volumeName] ?: SourceType.MIXED,
                 selectedFolders = mediaStoreFolders[volumeName].orEmpty(),
                 sourceTypes = sourceTypes,
+                counter = counter,
+                onProgress = onProgress,
             )
         }
+
+        onProgress?.invoke(counter.count)
 
         return results
             .distinctBy(MediaRecord::uri)
@@ -58,6 +67,8 @@ class MediaScanner(private val context: Context) {
         sourceType: SourceType,
         sourceId: String,
         relativePath: String,
+        counter: ScanCounter,
+        onProgress: ((Int) -> Unit)?,
     ) {
         val children = try {
             directory.listFiles()
@@ -79,6 +90,8 @@ class MediaScanner(private val context: Context) {
                         sourceType = sourceType,
                         sourceId = sourceId,
                         relativePath = childPath,
+                        counter = counter,
+                        onProgress = onProgress,
                     )
                 }
 
@@ -97,6 +110,7 @@ class MediaScanner(private val context: Context) {
                         episode = parsed.episode,
                         modifiedAt = file.lastModified(),
                     )
+                    reportProgress(counter, onProgress)
                 }
             }
         }
@@ -141,6 +155,8 @@ class MediaScanner(private val context: Context) {
         volumeSourceType: SourceType,
         selectedFolders: Set<String>,
         sourceTypes: Map<String, SourceType>,
+        counter: ScanCounter,
+        onProgress: ((Int) -> Unit)?,
     ) {
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Video.Media.getContentUri(volumeName)
@@ -213,12 +229,23 @@ class MediaScanner(private val context: Context) {
                         episode = parsed.episode,
                         modifiedAt = cursor.getLong(modifiedColumn) * 1000L,
                     )
+                    reportProgress(counter, onProgress)
                 }
             }
         } catch (_: SecurityException) {
             return
         } catch (_: IllegalArgumentException) {
             return
+        }
+    }
+
+    private fun reportProgress(
+        counter: ScanCounter,
+        onProgress: ((Int) -> Unit)?,
+    ) {
+        counter.count += 1
+        if (counter.count % PROGRESS_INTERVAL == 0) {
+            onProgress?.invoke(counter.count)
         }
     }
 
@@ -232,5 +259,9 @@ class MediaScanner(private val context: Context) {
             .substringAfterLast('.', "")
             .lowercase()
         return extension in videoExtensions
+    }
+
+    private companion object {
+        const val PROGRESS_INTERVAL = 25
     }
 }
