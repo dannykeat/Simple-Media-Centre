@@ -34,7 +34,7 @@
 - [x] poster-grid presentation with local video-frame fallback
 - [x] initial Android TV / D-pad focus treatment
 - [x] Recently Added view
-- [x] search, movie sorting and A–Z jump navigation
+- [x] search, Movies/TV/Videos sorting, A–Z jump navigation, watched filters and movie decade filters
 - [x] watched/unwatched state
 - [x] subtitle and audio-track selection
 - [x] multiple-source management and Movies / TV Shows / Videos / Mixed source typing
@@ -62,3 +62,5 @@
 - [x] publish local scan results before optional online metadata enrichment
 - [ ] migration/versioning tests
 - [ ] broader device, codec and USB-drive validation
+- [x] preserve cached MediaStore library records while a configured USB volume is temporarily unavailable
+- [x] manual CI trigger and debug APK artifact for repeatable hardware testing
