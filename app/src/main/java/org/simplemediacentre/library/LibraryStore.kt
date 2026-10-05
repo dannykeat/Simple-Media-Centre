@@ -10,6 +10,10 @@ class LibraryStore(context: Context) {
     private val preferences =
         context.getSharedPreferences("simple_media_centre", Context.MODE_PRIVATE)
 
+    init {
+        migratePreferencesIfNeeded()
+    }
+
     fun roots(): Set<String> =
         preferences.getStringSet(KEY_ROOTS, emptySet())?.toSet().orEmpty()
 
@@ -121,40 +125,42 @@ class LibraryStore(context: Context) {
 
     fun loadLibrary(): List<MediaRecord> {
         val raw = preferences.getString(KEY_LIBRARY, null) ?: return emptyList()
-        return runCatching {
-            val array = JSONArray(raw)
-            buildList {
-                for (index in 0 until array.length()) {
-                    val item = array.getJSONObject(index)
-                    add(
-                        MediaRecord(
-                            uri = item.getString("uri"),
-                            fileName = item.getString("fileName"),
-                            title = item.getString("title"),
-                            kind = MediaRecord.Kind.valueOf(item.getString("kind")),
-                            sourceId = item.optStringOrNull("sourceId"),
-                            relativePath = item.optStringOrNull("relativePath"),
-                            year = item.optIntOrNull("year"),
-                            season = item.optIntOrNull("season"),
-                            episode = item.optIntOrNull("episode"),
-                            modifiedAt = item.optLong("modifiedAt", 0L),
-                            sizeBytes = item.optLong("sizeBytes", 0L),
-                            addedAt = item.optLong("addedAt", 0L),
-                            metadataId = item.optIntOrNull("metadataId"),
-                            metadataTitle = item.optStringOrNull("metadataTitle"),
-                            overview = item.optStringOrNull("overview"),
-                            posterPath = item.optStringOrNull("posterPath"),
-                            backdropPath = item.optStringOrNull("backdropPath"),
-                            genres = item.optStringList("genres"),
-                            episodeMetadataId = item.optIntOrNull("episodeMetadataId"),
-                            episodeTitle = item.optStringOrNull("episodeTitle"),
-                            episodeOverview = item.optStringOrNull("episodeOverview"),
-                        )
-                    )
-                }
+        val array = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
+
+        return buildList {
+            for (index in 0 until array.length()) {
+                val item = runCatching { array.getJSONObject(index) }.getOrNull() ?: continue
+                parseRecord(item)?.let(::add)
             }
-        }.getOrDefault(emptyList())
+        }
     }
+
+    private fun parseRecord(item: JSONObject): MediaRecord? =
+        runCatching {
+            MediaRecord(
+                uri = item.getString("uri"),
+                fileName = item.getString("fileName"),
+                title = item.getString("title"),
+                kind = MediaRecord.Kind.valueOf(item.getString("kind")),
+                sourceId = item.optStringOrNull("sourceId"),
+                relativePath = item.optStringOrNull("relativePath"),
+                year = item.optIntOrNull("year"),
+                season = item.optIntOrNull("season"),
+                episode = item.optIntOrNull("episode"),
+                modifiedAt = item.optLong("modifiedAt", 0L),
+                sizeBytes = item.optLong("sizeBytes", 0L),
+                addedAt = item.optLong("addedAt", 0L),
+                metadataId = item.optIntOrNull("metadataId"),
+                metadataTitle = item.optStringOrNull("metadataTitle"),
+                overview = item.optStringOrNull("overview"),
+                posterPath = item.optStringOrNull("posterPath"),
+                backdropPath = item.optStringOrNull("backdropPath"),
+                genres = item.optStringList("genres"),
+                episodeMetadataId = item.optIntOrNull("episodeMetadataId"),
+                episodeTitle = item.optStringOrNull("episodeTitle"),
+                episodeOverview = item.optStringOrNull("episodeOverview"),
+            )
+        }.getOrNull()
 
     fun saveLibrary(items: List<MediaRecord>) {
         val array = JSONArray()
@@ -184,7 +190,22 @@ class LibraryStore(context: Context) {
                     .putNullable("episodeOverview", item.episodeOverview)
             )
         }
-        preferences.edit().putString(KEY_LIBRARY, array.toString()).apply()
+        preferences.edit()
+            .putString(KEY_LIBRARY, array.toString())
+            .putInt(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
+            .apply()
+    }
+
+    fun schemaVersion(): Int =
+        preferences.getInt(KEY_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION)
+
+    private fun migratePreferencesIfNeeded() {
+        val version = schemaVersion()
+        if (version >= CURRENT_SCHEMA_VERSION) return
+
+        preferences.edit()
+            .putInt(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
+            .apply()
     }
 
     fun playbackPosition(uri: String): Long =
@@ -245,6 +266,7 @@ class LibraryStore(context: Context) {
     private companion object {
         const val KEY_ROOTS = "roots"
         const val KEY_LIBRARY = "library"
+        const val KEY_SCHEMA_VERSION = "schema_version"
         const val KEY_TMDB_TOKEN = "tmdb_token"
         const val KEY_MEDIASTORE_VOLUMES = "mediastore_volumes"
         const val KEY_POSITION_PREFIX = "position:"
@@ -253,5 +275,7 @@ class LibraryStore(context: Context) {
         const val KEY_SOURCE_TYPE_PREFIX = "source_type:"
         const val KEY_SOURCE_LABEL_PREFIX = "source_label:"
         const val KEY_MEDIASTORE_FOLDERS_PREFIX = "mediastore_folders:"
+        const val LEGACY_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
     }
 }
