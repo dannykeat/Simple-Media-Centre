@@ -16,6 +16,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridView
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -135,7 +136,13 @@ class MainActivity : Activity() {
                 addView(sectionButton("Continue", Section.CONTINUE))
                 addView(sectionButton("Recent", Section.RECENT))
             }
-            addView(sections)
+            addView(
+                HorizontalScrollView(context).apply {
+                    isHorizontalScrollBarEnabled = false
+                    isFillViewport = true
+                    addView(sections)
+                }
+            )
 
             val actions = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
