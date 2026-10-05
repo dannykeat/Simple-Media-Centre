@@ -31,6 +31,7 @@ import org.simplemediacentre.library.MovieQueryEngine
 import org.simplemediacentre.library.MovieQuery
 import org.simplemediacentre.library.MovieFilter
 import org.simplemediacentre.library.PlaybackRules
+import org.simplemediacentre.library.TimeFormatter
 import org.simplemediacentre.metadata.LibraryEnricher
 import org.simplemediacentre.metadata.MediaMetadata
 import org.simplemediacentre.metadata.TmdbMetadataProvider
