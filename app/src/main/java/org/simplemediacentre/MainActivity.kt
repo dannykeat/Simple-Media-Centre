@@ -467,6 +467,7 @@ class MainActivity : Activity() {
         val labels = arrayOf(
             "Add media source",
             "Manage sources",
+            "Reconnect storage access",
             "Rescan library",
             "Metadata",
             "About",
@@ -478,9 +479,10 @@ class MainActivity : Activity() {
                 when (which) {
                     0 -> chooseMediaFolder()
                     1 -> showSources()
-                    2 -> scanLibrary()
-                    3 -> showMetadataSettings()
-                    4 -> showAbout()
+                    2 -> chooseMediaStoreVolume()
+                    3 -> scanLibrary()
+                    4 -> showMetadataSettings()
+                    5 -> showAbout()
                 }
             }
             .setNegativeButton("Close", null)
@@ -676,10 +678,29 @@ class MainActivity : Activity() {
     }
 
     private fun showAbout() {
+        val movieCount = library.count { it.kind == MediaRecord.Kind.MOVIE }
+        val episodeCount = library.count { it.kind == MediaRecord.Kind.TV_EPISODE }
+        val showCount = library
+            .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
+            .groupBy { item ->
+                item.metadataId?.let { "tmdb:" + it } ?: "title:" + item.title.lowercase()
+            }
+            .size
+        val videoCount = library.count {
+            it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN
+        }
+        val matchedCount = library.count { it.metadataId != null }
+        val sourceCount = store.roots().size + store.mediaStoreVolumes().size
+
         AlertDialog.Builder(this)
             .setTitle("Simple Media Centre")
             .setMessage(
                 "Simple Media Centre " + BuildConfig.VERSION_NAME + "\n\n" +
+                    "Movies: " + movieCount + "\n" +
+                    "TV shows: " + showCount + " (" + episodeCount + " episodes)\n" +
+                    "Videos: " + videoCount + "\n" +
+                    "Sources: " + sourceCount + "\n" +
+                    "Metadata matched: " + matchedCount + "/" + library.size + "\n\n" +
                     "Local-first video library and player.\n\n" +
                     "This product uses the TMDB API but is not endorsed or certified by TMDB."
             )
