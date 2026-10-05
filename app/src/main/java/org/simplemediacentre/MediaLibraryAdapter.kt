@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -51,6 +52,16 @@ class MediaLibraryAdapter(
             background = focusBackground()
             setPadding(padding, padding, padding, padding)
             minimumWidth = minimumCardWidth
+            stateListAnimator = null
+            setOnFocusChangeListener { view, hasFocus ->
+                val scale = if (hasFocus) 1.05f else 1f
+                view.animate()
+                    .scaleX(scale)
+                    .scaleY(scale)
+                    .setDuration(120L)
+                    .start()
+                view.elevation = if (hasFocus) 12f * density else 0f
+            }
 
             addView(
                 ImageView(context).apply {
@@ -69,6 +80,7 @@ class MediaLibraryAdapter(
                 textSize = titleSize
                 setTextColor(Color.WHITE)
                 maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
                 setPadding(0, padding, 0, 0)
             })
 
@@ -77,6 +89,7 @@ class MediaLibraryAdapter(
                 textSize = subtitleSize
                 setTextColor(Color.LTGRAY)
                 maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
             })
         }
     }
