@@ -84,4 +84,67 @@ class LibraryAlgorithmsTest {
         assertTrue(LibraryAlgorithms.matchesSearch(item, "family drive", "Family Drive"))
         assertFalse(LibraryAlgorithms.matchesSearch(item, "romance"))
     }
+
+    @Test
+    fun continueItemsRequireResumeStateAndSortByLastPlayed() {
+        val older = MediaRecord(
+            uri = "older",
+            fileName = "Older.mkv",
+            title = "Older",
+            kind = MediaRecord.Kind.MOVIE,
+        )
+        val newer = older.copy(uri = "newer", fileName = "Newer.mkv", title = "Newer")
+        val tooShort = older.copy(uri = "short", fileName = "Short.mkv", title = "Short")
+
+        val positions = mapOf(
+            "older" to 60_000L,
+            "newer" to 120_000L,
+            "short" to 10_000L,
+        )
+        val played = mapOf(
+            "older" to 100L,
+            "newer" to 200L,
+        )
+
+        assertEquals(
+            listOf("newer", "older"),
+            LibraryAlgorithms.continueItems(
+                items = listOf(older, newer, tooShort),
+                playbackPosition = { positions[it] ?: 0L },
+                isWatched = { false },
+                lastPlayed = { played[it] ?: 0L },
+            ).map { it.uri },
+        )
+    }
+
+    @Test
+    fun recentItemsSortNewestFirstAndRespectLimit() {
+        val items = listOf(
+            MediaRecord(
+                uri = "old",
+                fileName = "Old.mkv",
+                title = "Old",
+                kind = MediaRecord.Kind.MOVIE,
+                addedAt = 10L,
+            ),
+            MediaRecord(
+                uri = "new",
+                fileName = "New.mkv",
+                title = "New",
+                kind = MediaRecord.Kind.MOVIE,
+                addedAt = 20L,
+            ),
+            MediaRecord(
+                uri = "unset",
+                fileName = "Unset.mkv",
+                title = "Unset",
+                kind = MediaRecord.Kind.MOVIE,
+            ),
+        )
+
+        assertEquals(
+            listOf("new"),
+            LibraryAlgorithms.recentItems(items, limit = 1).map { it.uri },
+        )
+    }
 }
