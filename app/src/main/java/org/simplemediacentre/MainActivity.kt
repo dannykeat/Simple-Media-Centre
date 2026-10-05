@@ -768,7 +768,7 @@ class MainActivity : Activity() {
 
     private fun openCard(card: LibraryCard) {
         if (card.items.size == 1) {
-            play(card.items.first())
+            showDetails(card)
         } else {
             showEpisodePicker(card)
         }
@@ -862,8 +862,13 @@ class MainActivity : Activity() {
         val builder = AlertDialog.Builder(this)
             .setTitle(card.title)
             .setMessage(summary)
-            .setPositiveButton(if (card.items.size == 1) "Play" else "Episodes") { _, _ ->
-                openCard(card)
+            .setPositiveButton(if (card.items.size == 1) {
+                val position = store.playbackPosition(card.items.first().uri)
+                if (position > 30_000L && !store.isWatched(card.items.first().uri)) "Resume" else "Play"
+            } else {
+                "Episodes"
+            }) { _, _ ->
+                if (card.items.size == 1) play(card.items.first()) else showEpisodePicker(card)
             }
             .setNegativeButton("Close", null)
 
