@@ -15,8 +15,10 @@ The current working slice provides:
 - recursive indexing of common video formats;
 - movie and TV-episode filename recognition, including movie years;
 - Movies, TV Shows, Videos and Continue Watching library sections;
-- local library search, movie sorting and A–Z jump navigation for large collections;
+- local library search, Movies/TV/Videos sorting, watched filtering, movie decade filtering and A–Z jump navigation for large collections;
 - TV Show → Season → Episode browsing and folder-oriented Videos browsing;
+- friendly source names and cached-library preservation when a configured USB drive is temporarily disconnected;
+- persistent playback diagnostics with retry and external-player fallback;
 - TMDB poster artwork with local image caching and local video-frame thumbnail fallback when no poster is available;
 - TV episodes grouped under their show;
 - touch and D-pad focusable poster-grid navigation;
@@ -64,3 +66,9 @@ gradle test lint assembleDebug
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md).
+
+## Hardware testing
+
+The current development test build is **0.4.0**. See [docs/HARDWARE_TESTING.md](docs/HARDWARE_TESTING.md) for the MECOOL acceptance checklist.
+
+The Android workflow supports manual runs and publishes `simple-media-centre-0.4.0-debug` as an APK artifact after a successful build.
