@@ -50,11 +50,19 @@ class MainActivity : Activity() {
     private var section = Section.HOME
     private var searchQuery = ""
     private var movieSort = MovieSort.TITLE
+    private var tvSort = LibrarySort.TITLE
+    private var videoSort = LibrarySort.TITLE
 
     private enum class MovieSort {
         TITLE,
         RECENT,
         YEAR,
+        UNWATCHED,
+    }
+
+    private enum class LibrarySort {
+        TITLE,
+        RECENT,
         UNWATCHED,
     }
 
@@ -877,7 +885,8 @@ class MainActivity : Activity() {
     private fun showBrowseOptions() {
         val labels = when (section) {
             Section.MOVIES -> arrayOf("Sort movies", "Jump A–Z")
-            Section.TV, Section.VIDEOS -> arrayOf("Jump A–Z")
+            Section.TV -> arrayOf("Sort TV shows", "Jump A–Z")
+            Section.VIDEOS -> arrayOf("Sort videos", "Jump A–Z")
             else -> emptyArray()
         }
         if (labels.isEmpty()) {
@@ -888,8 +897,16 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Browse")
             .setItems(labels) { _, which ->
-                if (section == Section.MOVIES && which == 0) showMovieSort()
-                else showAlphabetJump()
+                if (which == 0) {
+                    when (section) {
+                        Section.MOVIES -> showMovieSort()
+                        Section.TV -> showLibrarySort("Sort TV shows", tvSort) { tvSort = it }
+                        Section.VIDEOS -> showLibrarySort("Sort videos", videoSort) { videoSort = it }
+                        else -> showAlphabetJump()
+                    }
+                } else {
+                    showAlphabetJump()
+                }
             }
             .setNegativeButton("Close", null)
             .show()
@@ -901,6 +918,24 @@ class MainActivity : Activity() {
             .setTitle("Sort movies")
             .setSingleChoiceItems(labels, movieSort.ordinal) { dialog, which ->
                 movieSort = MovieSort.entries[which]
+                renderLibrary()
+                dialog.dismiss()
+                gridView.requestFocus()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showLibrarySort(
+        title: String,
+        current: LibrarySort,
+        update: (LibrarySort) -> Unit,
+    ) {
+        val labels = arrayOf("Title A–Z", "Recently added", "Unwatched first")
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setSingleChoiceItems(labels, current.ordinal) { dialog, which ->
+                update(LibrarySort.entries[which])
                 renderLibrary()
                 dialog.dismiss()
                 gridView.requestFocus()
@@ -931,8 +966,8 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun tvCards(): List<LibraryCard> =
-        library
+    private fun tvCards(): List<LibraryCard> {
+        val cards = library
             .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
             .filter { matchesSearch(it) }
             .groupBy { item ->
@@ -969,9 +1004,12 @@ class MainActivity : Activity() {
                     items = ordered,
                 )
             }
-            .sortedBy { it.title.lowercase() }
 
-    private fun videoCards(): List<LibraryCard> =
+        return sortLibraryCards(cards, tvSort)
+    }
+
+    private fun videoCards(): List<LibraryCard> {
+        val cards =
         library
             .filter { it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN }
             .filter { matchesSearch(it) }
@@ -1012,7 +1050,24 @@ class MainActivity : Activity() {
                     )
                 }
             }
-            .sortedBy { it.title.lowercase() }
+
+        return sortLibraryCards(cards, videoSort)
+    }
+
+    private fun sortLibraryCards(
+        cards: List<LibraryCard>,
+        sort: LibrarySort,
+    ): List<LibraryCard> =
+        when (sort) {
+            LibrarySort.TITLE -> cards.sortedBy { it.title.lowercase() }
+            LibrarySort.RECENT -> cards.sortedByDescending { card ->
+                card.items.maxOfOrNull { it.addedAt } ?: 0L
+            }
+            LibrarySort.UNWATCHED -> cards.sortedWith(
+                compareBy<LibraryCard> { card -> card.items.all { store.isWatched(it.uri) } }
+                    .thenBy { it.title.lowercase() }
+            )
+        }
 
     private fun recentCards(): List<LibraryCard> =
         library
