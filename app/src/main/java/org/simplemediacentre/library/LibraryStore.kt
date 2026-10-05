@@ -144,6 +144,7 @@ class LibraryStore(context: Context) {
                             overview = item.optStringOrNull("overview"),
                             posterPath = item.optStringOrNull("posterPath"),
                             backdropPath = item.optStringOrNull("backdropPath"),
+                            genres = item.optStringList("genres"),
                             episodeMetadataId = item.optIntOrNull("episodeMetadataId"),
                             episodeTitle = item.optStringOrNull("episodeTitle"),
                             episodeOverview = item.optStringOrNull("episodeOverview"),
@@ -175,6 +176,7 @@ class LibraryStore(context: Context) {
                     .putNullable("overview", item.overview)
                     .putNullable("posterPath", item.posterPath)
                     .putNullable("backdropPath", item.backdropPath)
+                    .put("genres", JSONArray(item.genres))
                     .putNullable("episodeMetadataId", item.episodeMetadataId)
                     .putNullable("episodeTitle", item.episodeTitle)
                     .putNullable("episodeOverview", item.episodeOverview)
@@ -199,6 +201,15 @@ class LibraryStore(context: Context) {
         preferences.edit()
             .putLong(KEY_LAST_PLAYED_PREFIX + uri, atMs)
             .apply()
+    }
+
+    private fun JSONObject.optStringList(key: String): List<String> {
+        val array = optJSONArray(key) ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                array.optString(index).takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }
     }
 
     private fun JSONObject.optIntOrNull(key: String): Int? =
