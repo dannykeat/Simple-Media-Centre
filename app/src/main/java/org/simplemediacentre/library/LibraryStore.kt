@@ -18,12 +18,28 @@ class LibraryStore(context: Context) {
         preferences.edit().putStringSet(KEY_ROOTS, updated).apply()
     }
 
+    fun removeRoot(uri: String) {
+        val updated = roots().toMutableSet().apply { remove(uri) }
+        preferences.edit()
+            .putStringSet(KEY_ROOTS, updated)
+            .remove(KEY_SOURCE_TYPE_PREFIX + uri)
+            .apply()
+    }
+
     fun mediaStoreVolumes(): Set<String> =
         preferences.getStringSet(KEY_MEDIASTORE_VOLUMES, emptySet())?.toSet().orEmpty()
 
     fun addMediaStoreVolume(volumeName: String) {
         val updated = mediaStoreVolumes().toMutableSet().apply { add(volumeName) }
         preferences.edit().putStringSet(KEY_MEDIASTORE_VOLUMES, updated).apply()
+    }
+
+    fun removeMediaStoreVolume(volumeName: String) {
+        val updated = mediaStoreVolumes().toMutableSet().apply { remove(volumeName) }
+        preferences.edit()
+            .putStringSet(KEY_MEDIASTORE_VOLUMES, updated)
+            .remove(KEY_SOURCE_TYPE_PREFIX + volumeName)
+            .apply()
     }
 
     fun sourceType(sourceId: String): SourceType {
