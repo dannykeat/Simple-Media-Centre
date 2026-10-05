@@ -721,7 +721,7 @@ class MainActivity : Activity() {
         }
 
         val generation = ++metadataGeneration
-        val snapshot = library
+        val snapshot = library.map(::withoutOnlineMetadata)
         Thread {
             enrichMetadataIncrementally(snapshot, token, generation)
         }.start()
@@ -730,24 +730,25 @@ class MainActivity : Activity() {
     private fun clearCachedMetadata() {
         ++metadataGeneration
         progressView.visibility = View.GONE
-        val cleared = library.map { item ->
-            item.copy(
-                metadataId = null,
-                metadataTitle = null,
-                overview = null,
-                posterPath = null,
-                backdropPath = null,
-                genres = emptyList(),
-                episodeMetadataId = null,
-                episodeTitle = null,
-                episodeOverview = null,
-            )
-        }
+        val cleared = library.map(::withoutOnlineMetadata)
         library = cleared
         store.saveLibrary(cleared)
         renderLibrary()
         Toast.makeText(this, "Cached metadata cleared.", Toast.LENGTH_SHORT).show()
     }
+
+    private fun withoutOnlineMetadata(item: MediaRecord): MediaRecord =
+        item.copy(
+            metadataId = null,
+            metadataTitle = null,
+            overview = null,
+            posterPath = null,
+            backdropPath = null,
+            genres = emptyList(),
+            episodeMetadataId = null,
+            episodeTitle = null,
+            episodeOverview = null,
+        )
 
     private fun showTmdbSetup() {
         val input = EditText(this).apply {
