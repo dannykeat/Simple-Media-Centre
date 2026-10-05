@@ -376,6 +376,9 @@ class PlayerActivity : Activity() {
             val finished = duration > 0 && current >= duration - 60_000L
             val positionToSave = if (finished) 0L else current
             store.savePlaybackPosition(mediaUri, positionToSave)
+            if (current > 0L) {
+                store.markPlayed(mediaUri)
+            }
             if (finished) {
                 store.setWatched(mediaUri, true)
             }
