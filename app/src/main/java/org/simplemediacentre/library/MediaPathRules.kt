@@ -15,6 +15,38 @@ object MediaPathRules {
             .maxByOrNull(String::length)
     }
 
+    fun usefulFolderChoices(relativePaths: Collection<String>): List<String> {
+        val normalized = relativePaths.mapNotNull(::normalize)
+        if (normalized.isEmpty()) return emptyList()
+
+        val directCounts = normalized.groupingBy { it }.eachCount()
+        val unique = normalized.toSet()
+        val choices = linkedSetOf<String>()
+
+        unique.forEach { path ->
+            val parts = path.split('/').filter { it.isNotBlank() }
+            if (parts.isEmpty()) return@forEach
+
+            choices += parts.first()
+
+            if (parts.size >= 2) {
+                val secondLevel = parts.take(2).joinToString("/")
+                val descendantCount = unique.count { other ->
+                    other.startsWith(secondLevel + "/")
+                }
+                val directCount = directCounts[secondLevel] ?: 0
+                if (descendantCount >= 2 || directCount >= 3) {
+                    choices += secondLevel
+                }
+            }
+        }
+
+        return choices.sortedWith(
+            compareBy<String> { path -> path.count { it == '/' } }
+                .thenBy { it.lowercase() }
+        )
+    }
+
     fun sourceId(volumeName: String, folder: String): String =
         volumeName + "|" + normalize(folder).orEmpty()
 
