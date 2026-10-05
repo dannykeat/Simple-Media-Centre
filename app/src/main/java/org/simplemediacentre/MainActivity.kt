@@ -450,7 +450,9 @@ class MainActivity : Activity() {
         val mediaStoreVolumes = store.mediaStoreVolumes()
         val sourceCount = roots.size + mediaStoreVolumes.size
         if (sourceCount == 0) {
-            statusView.text = "Add a media folder or storage source first."
+            library = emptyList()
+            store.saveLibrary(emptyList())
+            renderLibrary()
             return
         }
 
