@@ -1462,20 +1462,18 @@ class MainActivity : Activity() {
         }
 
     private fun recentCards(): List<LibraryCard> =
-        library
-            .filter { it.addedAt > 0L }
-            .filter { matchesSearch(it) }
-            .sortedByDescending { it.addedAt }
-            .take(30)
-            .map { item ->
-                LibraryCard(
-                    key = "recent:" + item.uri,
-                    title = item.displayTitle,
-                    subtitle = recentSubtitle(item),
-                    posterPath = item.posterPath,
-                    items = listOf(item),
-                )
-            }
+        LibraryAlgorithms.recentItems(
+            items = library,
+            matchesSearch = ::matchesSearch,
+        ).map { item ->
+            LibraryCard(
+                key = "recent:" + item.uri,
+                title = item.displayTitle,
+                subtitle = recentSubtitle(item),
+                posterPath = item.posterPath,
+                items = listOf(item),
+            )
+        }
 
     private fun recentSubtitle(item: MediaRecord): String {
         val watched = if (store.isWatched(item.uri)) "Watched" else "New"
@@ -1487,27 +1485,22 @@ class MainActivity : Activity() {
     }
 
     private fun continueCards(): List<LibraryCard> =
-        library
-            .filter { matchesSearch(it) }
-            .mapNotNull { item ->
-                val position = store.playbackPosition(item.uri)
-                if (!PlaybackRules.canResume(position, store.isWatched(item.uri))) {
-                    null
-                } else {
-                    LibraryCard(
-                        key = item.uri,
-                        title = item.displayTitle,
-                        subtitle = "Resume " + TimeFormatter.format(position),
-                        posterPath = item.posterPath,
-                        items = listOf(item),
-                    )
-                }
-            }
-            .sortedWith(
-                compareByDescending<LibraryCard> { card ->
-                    card.items.firstOrNull()?.let { store.lastPlayed(it.uri) } ?: 0L
-                }.thenBy { it.title.lowercase() }
+        LibraryAlgorithms.continueItems(
+            items = library,
+            playbackPosition = store::playbackPosition,
+            isWatched = store::isWatched,
+            lastPlayed = store::lastPlayed,
+            matchesSearch = ::matchesSearch,
+        ).map { item ->
+            val position = store.playbackPosition(item.uri)
+            LibraryCard(
+                key = item.uri,
+                title = item.displayTitle,
+                subtitle = "Resume " + TimeFormatter.format(position),
+                posterPath = item.posterPath,
+                items = listOf(item),
             )
+        }
 
     private fun openCard(card: LibraryCard) {
         when (card.key) {
