@@ -5,6 +5,8 @@ data class MediaRecord(
     val fileName: String,
     val title: String,
     val kind: Kind,
+    val sourceId: String? = null,
+    val relativePath: String? = null,
     val year: Int? = null,
     val season: Int? = null,
     val episode: Int? = null,
