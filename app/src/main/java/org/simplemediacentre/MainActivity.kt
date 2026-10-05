@@ -17,7 +17,6 @@ import android.widget.EditText
 import android.widget.GridView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.SearchView
 import android.widget.TextView
 import android.widget.Toast
 import org.simplemediacentre.library.LibraryStore
@@ -43,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var progressView: ProgressBar
     private lateinit var adapter: MediaLibraryAdapter
+    private val sectionButtons = mutableMapOf<Section, Button>()
 
     private var library: List<MediaRecord> = emptyList()
     private var visibleCards: List<LibraryCard> = emptyList()
@@ -62,6 +62,7 @@ class MainActivity : Activity() {
         store = LibraryStore(this)
         setContentView(buildUi())
         library = store.loadLibrary()
+        updateSectionButtons()
         renderLibrary()
 
         if (library.isEmpty() && (store.roots().isNotEmpty() || store.mediaStoreVolumes().isNotEmpty())) {
@@ -94,29 +95,13 @@ class MainActivity : Activity() {
             }
             addView(sections)
 
-            addView(SearchView(context).apply {
-                queryHint = "Search library"
-                isIconifiedByDefault = false
-                setOnQueryTextListener(
-                    object : SearchView.OnQueryTextListener {
-                        override fun onQueryTextSubmit(query: String?): Boolean {
-                            searchQuery = query.orEmpty().trim()
-                            if (::adapter.isInitialized) renderLibrary()
-                            if (::gridView.isInitialized) gridView.requestFocus()
-                            return true
-                        }
-
-                        override fun onQueryTextChange(newText: String?): Boolean {
-                            searchQuery = newText.orEmpty().trim()
-                            if (::adapter.isInitialized) renderLibrary()
-                            return true
-                        }
-                    }
-                )
-            })
-
             val actions = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
+
+                addView(Button(context).apply {
+                    text = "Search"
+                    setOnClickListener { showSearch() }
+                })
 
                 addView(Button(context).apply {
                     text = "Browse"
@@ -178,12 +163,46 @@ class MainActivity : Activity() {
     private fun sectionButton(label: String, target: Section): Button =
         Button(this).apply {
             text = label
+            sectionButtons[target] = this
             setOnClickListener {
                 section = target
+                updateSectionButtons()
                 renderLibrary()
                 gridView.requestFocus()
             }
         }
+
+    private fun updateSectionButtons() {
+        sectionButtons.forEach { (target, button) ->
+            button.alpha = if (target == section) 1f else 0.62f
+            button.isSelected = target == section
+        }
+    }
+
+    private fun showSearch() {
+        val input = EditText(this).apply {
+            setText(searchQuery)
+            selectAll()
+            hint = "Title or filename"
+            isSingleLine = true
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Search library")
+            .setView(input)
+            .setPositiveButton("Search") { _, _ ->
+                searchQuery = input.text.toString().trim()
+                renderLibrary()
+                gridView.requestFocus()
+            }
+            .setNeutralButton("Clear") { _, _ ->
+                searchQuery = ""
+                renderLibrary()
+                gridView.requestFocus()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     @Suppress("DEPRECATION")
     private fun chooseMediaFolder() {
@@ -589,7 +608,8 @@ class MainActivity : Activity() {
                 }
                 val suffix = if (visibleCards.size == 1) "" else "s"
                 visibleCards.size.toString() + " " + label + suffix +
-                    if (store.tmdbToken().isNotBlank()) " • " + matched + " files matched" else ""
+                    (if (searchQuery.isNotBlank()) " • Search: " + searchQuery else "") +
+                    (if (store.tmdbToken().isNotBlank()) " • " + matched + " files matched" else "")
             }
         }
     }
