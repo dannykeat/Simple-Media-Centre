@@ -17,6 +17,7 @@ class LibraryEnricher(
                         overview = metadata.overview,
                         posterPath = metadata.posterPath,
                         backdropPath = metadata.backdropPath,
+                        genres = metadata.genres,
                     )
                 } ?: item
             }
