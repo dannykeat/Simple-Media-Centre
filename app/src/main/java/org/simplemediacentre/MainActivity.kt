@@ -49,6 +49,12 @@ class MainActivity : Activity() {
     private var visibleCards: List<LibraryCard> = emptyList()
     private var section = Section.HOME
     private var searchQuery = ""
+    @Volatile
+    private var scanGeneration = 0
+
+    @Volatile
+    private var metadataGeneration = 0
+
     private var movieSort = MovieSort.TITLE
     private var movieFilter = MovieFilter.ALL
     private var movieDecade: Int? = null
@@ -681,8 +687,10 @@ class MainActivity : Activity() {
             return
         }
 
+        val generation = ++metadataGeneration
+        val snapshot = library
         Thread {
-            enrichMetadataIncrementally(library, token)
+            enrichMetadataIncrementally(snapshot, token, generation)
         }.start()
     }
 
@@ -765,6 +773,8 @@ class MainActivity : Activity() {
     }
 
     private fun scanLibrary() {
+        val generation = ++scanGeneration
+        val metadataGenerationForScan = ++metadataGeneration
         val roots = store.roots()
         val mediaStoreVolumes = store.mediaStoreVolumes()
         val sourceCount = roots.size + mediaStoreVolumes.size
@@ -811,23 +821,31 @@ class MainActivity : Activity() {
             var scanned = (fresh + cachedUnavailable)
                 .distinctBy(MediaRecord::uri)
 
-            store.saveLibrary(scanned)
+            if (generation == scanGeneration) {
+                store.saveLibrary(scanned)
 
-            runOnUiThread {
-                library = scanned
-                progressView.visibility = View.GONE
-                renderLibrary()
-                if (unavailableVolumes.isNotEmpty()) {
-                    statusView.text = statusView.text.toString() +
-                        " • " + unavailableVolumes.size + " storage source" +
-                        (if (unavailableVolumes.size == 1) "" else "s") +
-                        " unavailable; cached items kept"
+                runOnUiThread {
+                    if (generation == scanGeneration) {
+                        library = scanned
+                        progressView.visibility = View.GONE
+                        renderLibrary()
+                        if (unavailableVolumes.isNotEmpty()) {
+                            statusView.text = statusView.text.toString() +
+                                " • " + unavailableVolumes.size + " storage source" +
+                                (if (unavailableVolumes.size == 1) "" else "s") +
+                                " unavailable; cached items kept"
+                        }
+                    }
                 }
-            }
 
-            val token = store.tmdbToken()
-            if (token.isNotBlank()) {
-                enrichMetadataIncrementally(scanned, token)
+                val token = store.tmdbToken()
+                if (token.isNotBlank()) {
+                    enrichMetadataIncrementally(
+                        scanned,
+                        token,
+                        metadataGenerationForScan,
+                    )
+                }
             }
         }.start()
     }
@@ -835,6 +853,7 @@ class MainActivity : Activity() {
     private fun enrichMetadataIncrementally(
         base: List<MediaRecord>,
         token: String,
+        generation: Int,
     ): List<MediaRecord> {
         val enricher = LibraryEnricher(TmdbMetadataProvider(token))
         val working = base.toMutableList()
@@ -848,30 +867,36 @@ class MainActivity : Activity() {
             statusView.text = "Library ready • matching metadata…"
         }
 
-        candidates.chunked(METADATA_BATCH_SIZE).forEachIndexed { batchIndex, batch ->
+        var completed = 0
+        for (batch in candidates.chunked(METADATA_BATCH_SIZE)) {
+            if (generation != metadataGeneration) break
+
             val enrichedBatch = enricher.enrich(batch)
             enrichedBatch.forEach { item ->
                 indexesByUri[item.uri]?.let { index -> working[index] = item }
             }
 
+            if (generation != metadataGeneration) break
+
+            completed = minOf(completed + batch.size, candidates.size)
             store.saveLibrary(working)
 
-            val completed = minOf(
-                (batchIndex + 1) * METADATA_BATCH_SIZE,
-                candidates.size,
-            )
             runOnUiThread {
-                library = working.toList()
-                renderLibrary()
-                statusView.text =
-                    "Library ready • metadata " + completed + "/" + candidates.size
+                if (generation == metadataGeneration) {
+                    library = working.toList()
+                    renderLibrary()
+                    statusView.text =
+                        "Library ready • metadata " + completed + "/" + candidates.size
+                }
             }
         }
 
         runOnUiThread {
-            library = working.toList()
-            progressView.visibility = View.GONE
-            renderLibrary()
+            if (generation == metadataGeneration) {
+                library = working.toList()
+                progressView.visibility = View.GONE
+                renderLibrary()
+            }
         }
 
         return working
