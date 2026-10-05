@@ -1741,6 +1741,7 @@ class MainActivity : Activity() {
                         overview = candidate.overview,
                         posterPath = candidate.posterPath,
                         backdropPath = candidate.backdropPath,
+                        year = item.year ?: candidate.year,
                         genres = candidate.genres,
                         episodeMetadataId = null,
                         episodeTitle = null,
