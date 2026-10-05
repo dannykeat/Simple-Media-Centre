@@ -11,6 +11,7 @@ data class MediaRecord(
     val season: Int? = null,
     val episode: Int? = null,
     val modifiedAt: Long = 0L,
+    val sizeBytes: Long = 0L,
     val addedAt: Long = 0L,
     val metadataId: Int? = null,
     val metadataTitle: String? = null,
