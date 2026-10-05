@@ -756,13 +756,57 @@ class MainActivity : Activity() {
     }
 
     private fun homeCards(): List<LibraryCard> {
-        val continueItems = continueCards().take(12)
-        val recentItems = recentCards().take(12)
-        val unwatchedMovies = movieCards().filter { card ->
-            card.items.firstOrNull()?.let { !store.isWatched(it.uri) } == true
-        }.take(12)
+        val movies = library.filter { it.kind == MediaRecord.Kind.MOVIE }
+        val tvEpisodes = library.filter { it.kind == MediaRecord.Kind.TV_EPISODE }
+        val videos = library.filter {
+            it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN
+        }
+        val showCount = tvEpisodes
+            .groupBy { item ->
+                item.metadataId?.let { "tmdb:" + it } ?: "title:" + item.title.lowercase()
+            }
+            .size
 
-        return (continueItems + recentItems + unwatchedMovies)
+        val destinations = buildList {
+            if (movies.isNotEmpty()) {
+                add(
+                    LibraryCard(
+                        key = "nav:movies",
+                        title = "Movies",
+                        subtitle = movies.size.toString() + " titles",
+                        posterPath = movies.firstOrNull { it.posterPath != null }?.posterPath,
+                        items = movies.take(1),
+                    )
+                )
+            }
+            if (tvEpisodes.isNotEmpty()) {
+                add(
+                    LibraryCard(
+                        key = "nav:tv",
+                        title = "TV Shows",
+                        subtitle = showCount.toString() + " shows",
+                        posterPath = tvEpisodes.firstOrNull { it.posterPath != null }?.posterPath,
+                        items = tvEpisodes.take(1),
+                    )
+                )
+            }
+            if (videos.isNotEmpty()) {
+                add(
+                    LibraryCard(
+                        key = "nav:videos",
+                        title = "Videos",
+                        subtitle = videos.size.toString() + " videos",
+                        posterPath = videos.firstOrNull { it.posterPath != null }?.posterPath,
+                        items = videos.take(1),
+                    )
+                )
+            }
+        }
+
+        val continueItems = continueCards().take(8)
+        val recentItems = recentCards().take(8)
+
+        return destinations + (continueItems + recentItems)
             .distinctBy { it.items.firstOrNull()?.uri ?: it.key }
     }
 
@@ -991,11 +1035,25 @@ class MainActivity : Activity() {
             .sortedBy { it.title.lowercase() }
 
     private fun openCard(card: LibraryCard) {
-        when {
-            card.key.startsWith("videofolder:") -> showVideoFolder(card)
-            card.items.size == 1 -> showDetails(card)
-            else -> showEpisodePicker(card)
+        when (card.key) {
+            "nav:movies" -> openSection(Section.MOVIES)
+            "nav:tv" -> openSection(Section.TV)
+            "nav:videos" -> openSection(Section.VIDEOS)
+            else -> when {
+                card.key.startsWith("videofolder:") -> showVideoFolder(card)
+                card.items.size == 1 -> showDetails(card)
+                else -> showEpisodePicker(card)
+            }
         }
+    }
+
+    private fun openSection(target: Section) {
+        section = target
+        searchQuery = ""
+        updateSectionButtons()
+        renderLibrary()
+        gridView.setSelection(0)
+        gridView.requestFocus()
     }
 
     private fun showVideoFolder(card: LibraryCard) {
