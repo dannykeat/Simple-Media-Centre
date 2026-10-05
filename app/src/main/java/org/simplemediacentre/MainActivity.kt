@@ -79,6 +79,7 @@ class MainActivity : Activity() {
         ALL,
         UNWATCHED,
         WATCHED,
+        UNMATCHED,
     }
 
     private data class ConfiguredSource(
@@ -1060,6 +1061,7 @@ class MainActivity : Activity() {
                     MovieFilter.ALL -> true
                     MovieFilter.UNWATCHED -> !store.isWatched(item.uri)
                     MovieFilter.WATCHED -> store.isWatched(item.uri)
+                    MovieFilter.UNMATCHED -> item.metadataId == null
                 }
             }
             .filter { item ->
@@ -1189,6 +1191,7 @@ class MainActivity : Activity() {
             add("All movies")
             add("Unwatched")
             add("Watched")
+            if (store.tmdbToken().isNotBlank()) add("Metadata unmatched")
             decades.forEach { add(it.toString() + "s") }
             add("Unknown year")
             genres.forEach { add("Genre: " + it) }
@@ -1197,7 +1200,8 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Filter movies")
             .setItems(labels) { _, which ->
-                val decadeStart = 3
+                val hasMetadataFilter = store.tmdbToken().isNotBlank()
+                val decadeStart = if (hasMetadataFilter) 4 else 3
                 val unknownYearIndex = decadeStart + decades.size
                 val genreStart = unknownYearIndex + 1
 
@@ -1214,6 +1218,11 @@ class MainActivity : Activity() {
                     }
                     which == 2 -> {
                         movieFilter = MovieFilter.WATCHED
+                        movieDecade = null
+                        movieGenre = null
+                    }
+                    hasMetadataFilter && which == 3 -> {
+                        movieFilter = MovieFilter.UNMATCHED
                         movieDecade = null
                         movieGenre = null
                     }
