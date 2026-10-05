@@ -14,6 +14,7 @@ data class MediaMetadata(
     val overview: String?,
     val posterPath: String?,
     val backdropPath: String?,
+    val year: Int? = null,
     val genres: List<String> = emptyList(),
 )
 
