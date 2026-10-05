@@ -17,6 +17,7 @@ data class MediaRecord(
     val overview: String? = null,
     val posterPath: String? = null,
     val backdropPath: String? = null,
+    val genres: List<String> = emptyList(),
     val episodeMetadataId: Int? = null,
     val episodeTitle: String? = null,
     val episodeOverview: String? = null,
