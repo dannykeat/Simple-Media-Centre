@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import org.simplemediacentre.library.LibraryStore
+import org.simplemediacentre.model.MediaRecord
 import java.util.Locale
 
 class PlayerActivity : Activity() {
@@ -44,6 +45,7 @@ class PlayerActivity : Activity() {
     private lateinit var infoButton: Button
     private lateinit var store: LibraryStore
     private lateinit var mediaUri: String
+    private var upNextShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,6 +79,14 @@ class PlayerActivity : Activity() {
                 override fun onPlayerError(error: PlaybackException) {
                     showPlaybackError(error)
                 }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED && !upNextShown) {
+                        upNextShown = true
+                        store.setWatched(mediaUri, true)
+                        nextEpisode()?.let(::showUpNext)
+                    }
+                }
             }
         )
 
@@ -99,6 +109,48 @@ class PlayerActivity : Activity() {
             exoPlayer.seekTo(savedPosition)
         }
         exoPlayer.playWhenReady = true
+    }
+
+    private fun nextEpisode(): MediaRecord? {
+        val items = store.loadLibrary()
+        val current = items.firstOrNull { it.uri == mediaUri } ?: return null
+        if (current.kind != MediaRecord.Kind.TV_EPISODE) return null
+
+        val sameShow = items
+            .filter { item ->
+                item.kind == MediaRecord.Kind.TV_EPISODE &&
+                    if (current.metadataId != null) {
+                        item.metadataId == current.metadataId
+                    } else {
+                        item.title.equals(current.title, ignoreCase = true)
+                    }
+            }
+            .sortedWith(
+                compareBy<MediaRecord> { it.season ?: Int.MAX_VALUE }
+                    .thenBy { it.episode ?: Int.MAX_VALUE }
+                    .thenBy { it.fileName.lowercase() }
+            )
+
+        val currentIndex = sameShow.indexOfFirst { it.uri == mediaUri }
+        if (currentIndex < 0 || currentIndex >= sameShow.lastIndex) return null
+        return sameShow[currentIndex + 1]
+    }
+
+    private fun showUpNext(next: MediaRecord) {
+        AlertDialog.Builder(this)
+            .setTitle("Up next")
+            .setMessage(next.episodeDisplayTitle)
+            .setPositiveButton("Play next") { _, _ ->
+                store.savePlaybackPosition(mediaUri, 0L)
+                startActivity(
+                    Intent(this, PlayerActivity::class.java)
+                        .putExtra(EXTRA_URI, next.uri)
+                        .putExtra(EXTRA_TITLE, next.displayTitle)
+                )
+                finish()
+            }
+            .setNegativeButton("Done") { _, _ -> finish() }
+            .show()
     }
 
     private fun canReadMedia(uri: Uri): Boolean {
