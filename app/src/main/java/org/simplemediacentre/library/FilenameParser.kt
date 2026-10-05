@@ -7,6 +7,12 @@ object FilenameParser {
     private val episodePattern = Regex(
         """(?i)^(.*?)[ ._\-]+s(\d{1,2})e(\d{1,3})(?:[ ._\-]+|$).*"""
     )
+    private val episodeXPattern = Regex(
+        """(?i)^(.*?)[ ._\-]+(\d{1,2})x(\d{1,3})(?:[ ._\-]+|$).*"""
+    )
+    private val seasonEpisodePattern = Regex(
+        """(?i)^(.*?)[ ._\-]+season[ ._\-]*(\d{1,2})[ ._\-]+episode[ ._\-]*(\d{1,3})(?:[ ._\-]+|$).*"""
+    )
     private val yearPattern = Regex("""^(.*?)[ ._\-]*[\[(](19\d{2}|20\d{2})[\])]""")
     private val trailingNoise = Regex(
         """(?i)[ ._\-]+(?:2160p|1080p|720p|480p|uhd|bluray|blu-ray|brrip|webrip|web-dl|hdtv|dvdrip|x26[45]|h26[45]|hevc|av1|hdr|remux).*$"""
@@ -24,6 +30,26 @@ object FilenameParser {
         val stem = fileName.substringBeforeLast('.', fileName).trim()
 
         episodePattern.matchEntire(stem)?.let { match ->
+            val title = cleanTitle(match.groupValues[1])
+            return Parsed(
+                title = title.ifBlank { stem },
+                kind = MediaRecord.Kind.TV_EPISODE,
+                season = match.groupValues[2].toInt(),
+                episode = match.groupValues[3].toInt(),
+            )
+        }
+
+        episodeXPattern.matchEntire(stem)?.let { match ->
+            val title = cleanTitle(match.groupValues[1])
+            return Parsed(
+                title = title.ifBlank { stem },
+                kind = MediaRecord.Kind.TV_EPISODE,
+                season = match.groupValues[2].toInt(),
+                episode = match.groupValues[3].toInt(),
+            )
+        }
+
+        seasonEpisodePattern.matchEntire(stem)?.let { match ->
             val title = cleanTitle(match.groupValues[1])
             return Parsed(
                 title = title.ifBlank { stem },
