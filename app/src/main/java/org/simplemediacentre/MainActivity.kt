@@ -119,13 +119,8 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
 
                 addView(Button(context).apply {
-                    text = "Sort"
-                    setOnClickListener { showMovieSort() }
-                })
-
-                addView(Button(context).apply {
-                    text = "Jump A–Z"
-                    setOnClickListener { showAlphabetJump() }
+                    text = "Browse"
+                    setOnClickListener { showBrowseOptions() }
                 })
 
                 addView(Button(context).apply {
@@ -613,6 +608,27 @@ class MainActivity : Activity() {
         return item.displayTitle.lowercase().contains(query) ||
             item.fileName.lowercase().contains(query) ||
             item.episodeTitle?.lowercase()?.contains(query) == true
+    }
+
+    private fun showBrowseOptions() {
+        val labels = when (section) {
+            Section.MOVIES -> arrayOf("Sort movies", "Jump A–Z")
+            Section.TV, Section.VIDEOS -> arrayOf("Jump A–Z")
+            else -> emptyArray()
+        }
+        if (labels.isEmpty()) {
+            Toast.makeText(this, "No additional browsing options here.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Browse")
+            .setItems(labels) { _, which ->
+                if (section == Section.MOVIES && which == 0) showMovieSort()
+                else showAlphabetJump()
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun showMovieSort() {
