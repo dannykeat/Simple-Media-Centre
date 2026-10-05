@@ -2,6 +2,8 @@ package org.simplemediacentre
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -72,14 +74,7 @@ class PlayerActivity : Activity() {
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    val detail = error.cause?.message?.takeIf { it.isNotBlank() }
-                        ?: error.message
-                        ?: "Unknown playback error"
-                    Toast.makeText(
-                        this@PlayerActivity,
-                        "Cannot play this video: " + detail,
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    showPlaybackError(error)
                 }
             }
         )
@@ -98,6 +93,43 @@ class PlayerActivity : Activity() {
             exoPlayer.seekTo(savedPosition)
         }
         exoPlayer.playWhenReady = true
+    }
+
+    private fun showPlaybackError(error: PlaybackException) {
+        val detail = error.cause?.message?.takeIf { it.isNotBlank() }
+            ?: error.message
+            ?: "Unknown playback error"
+        val message = error.errorCodeName + "\n\n" + detail
+
+        AlertDialog.Builder(this)
+            .setTitle("Cannot play this video")
+            .setMessage(message)
+            .setPositiveButton("Retry") { _, _ ->
+                player?.prepare()
+                player?.playWhenReady = true
+                playerView.requestFocus()
+            }
+            .setNeutralButton("Other player") { _, _ -> openExternalPlayer() }
+            .setNegativeButton("Close") { _, _ -> finish() }
+            .show()
+    }
+
+    private fun openExternalPlayer() {
+        val uri = Uri.parse(mediaUri)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "video/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        try {
+            startActivity(Intent.createChooser(intent, "Open video with"))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(
+                this,
+                "No other video player is installed.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 
     private fun buildPlayerUi(): View {
