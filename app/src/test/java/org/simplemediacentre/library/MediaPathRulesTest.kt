@@ -9,7 +9,36 @@ class MediaPathRulesTest {
     fun normalizesFolderPaths() {
         assertEquals("Movies/Action", MediaPathRules.normalize("/Movies/Action/"))
         assertNull(MediaPathRules.normalize(" / "))
+        @Test
+    fun collapsesManyMovieFoldersToUsefulParent() {
+        val choices = MediaPathRules.usefulFolderChoices(
+            listOf(
+                "Movies/Alien",
+                "Movies/Aliens",
+                "Movies/Arrival",
+                "TV/Severance/Season 1",
+                "TV/Severance/Season 1",
+                "TV/Severance/Season 1",
+            )
+        )
+
+        assertEquals(listOf("Movies", "TV", "TV/Severance"), choices)
     }
+
+    @Test
+    fun keepsSecondLevelFolderWithSeveralDirectVideos() {
+        val choices = MediaPathRules.usefulFolderChoices(
+            listOf(
+                "Media/Family",
+                "Media/Family",
+                "Media/Family",
+                "Media/Movies/Alien",
+            )
+        )
+
+        assertEquals(listOf("Media", "Media/Family"), choices)
+    }
+}
 
     @Test
     fun choosesMostSpecificSelectedFolder() {
