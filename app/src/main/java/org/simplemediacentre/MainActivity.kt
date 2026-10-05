@@ -1226,10 +1226,13 @@ class MainActivity : Activity() {
             ?: "No online description is available for this episode."
 
         val watched = store.isWatched(episode.uri)
+        val position = store.playbackPosition(episode.uri)
         AlertDialog.Builder(this)
             .setTitle(episode.episodeDisplayTitle)
             .setMessage(summary)
-            .setPositiveButton("Play") { _, _ -> play(episode) }
+            .setPositiveButton(
+                if (position > 30_000L && !watched) "Resume" else "Play"
+            ) { _, _ -> play(episode) }
             .setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
                 store.setWatched(episode.uri, !watched)
                 renderLibrary()
@@ -1267,15 +1270,8 @@ class MainActivity : Activity() {
         if (card.items.size == 1) {
             val item = card.items.first()
             val watched = store.isWatched(item.uri)
-            if (store.tmdbToken().isNotBlank()) {
-                builder.setNeutralButton("Actions") { _, _ ->
-                    showSingleItemActions(card, watched)
-                }
-            } else {
-                builder.setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
-                    store.setWatched(item.uri, !watched)
-                    renderLibrary()
-                }
+            builder.setNeutralButton("Actions") { _, _ ->
+                showSingleItemActions(card, watched)
             }
         } else if (store.tmdbToken().isNotBlank()) {
             builder.setNeutralButton("Fix match") { _, _ -> promptFixMatch(card) }
@@ -1288,21 +1284,34 @@ class MainActivity : Activity() {
         card: LibraryCard,
         watched: Boolean,
     ) {
-        val labels = arrayOf(
-            if (watched) "Mark unwatched" else "Mark watched",
-            "Fix match",
-        )
+        val item = card.items.first()
+        val canRestart = store.playbackPosition(item.uri) > 30_000L
+        val labels = buildList {
+            add(if (watched) "Mark unwatched" else "Mark watched")
+            if (canRestart) add("Restart from beginning")
+            if (store.tmdbToken().isNotBlank() && item.kind != MediaRecord.Kind.VIDEO) {
+                add("Fix match")
+            }
+        }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle(card.title)
             .setItems(labels) { _, which ->
-                when (which) {
-                    0 -> {
-                        val item = card.items.first()
-                        store.setWatched(item.uri, !watched)
+                when (labels[which]) {
+                    "Mark watched" -> {
+                        store.setWatched(item.uri, true)
                         renderLibrary()
                     }
-                    1 -> promptFixMatch(card)
+                    "Mark unwatched" -> {
+                        store.setWatched(item.uri, false)
+                        renderLibrary()
+                    }
+                    "Restart from beginning" -> {
+                        store.savePlaybackPosition(item.uri, 0L)
+                        store.setWatched(item.uri, false)
+                        play(item)
+                    }
+                    "Fix match" -> promptFixMatch(card)
                 }
             }
             .setNegativeButton("Close", null)
