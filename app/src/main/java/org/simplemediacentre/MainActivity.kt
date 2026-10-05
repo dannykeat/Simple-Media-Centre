@@ -26,6 +26,10 @@ import org.simplemediacentre.library.LibraryMetricsCalculator
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.MediaIdentity
 import org.simplemediacentre.library.MediaScanner
+import org.simplemediacentre.library.MovieSort
+import org.simplemediacentre.library.MovieQueryEngine
+import org.simplemediacentre.library.MovieQuery
+import org.simplemediacentre.library.MovieFilter
 import org.simplemediacentre.library.PlaybackRules
 import org.simplemediacentre.metadata.LibraryEnricher
 import org.simplemediacentre.metadata.MediaMetadata
@@ -69,24 +73,10 @@ class MainActivity : Activity() {
     private var tvSort = LibrarySort.TITLE
     private var videoSort = LibrarySort.TITLE
 
-    private enum class MovieSort {
-        TITLE,
-        RECENT,
-        YEAR,
-        UNWATCHED,
-    }
-
     private enum class LibrarySort {
         TITLE,
         RECENT,
         UNWATCHED,
-    }
-
-    private enum class MovieFilter {
-        ALL,
-        UNWATCHED,
-        WATCHED,
-        UNMATCHED,
     }
 
     private data class ConfiguredSource(
@@ -1173,54 +1163,31 @@ class MainActivity : Activity() {
     }
 
     private fun movieCards(): List<LibraryCard> {
-        val matching = library
-            .filter { it.kind == MediaRecord.Kind.MOVIE }
-            .filter { matchesSearch(it) }
-            .filter { item ->
-                when (movieFilter) {
-                    MovieFilter.ALL -> true
-                    MovieFilter.UNWATCHED -> !store.isWatched(item.uri)
-                    MovieFilter.WATCHED -> store.isWatched(item.uri)
-                    MovieFilter.UNMATCHED -> item.metadataId == null
-                }
-            }
-            .filter { item ->
-                when (val decade = movieDecade) {
-                    null -> true
-                    Int.MIN_VALUE -> item.year == null
-                    else -> item.year?.let { (it / 10) * 10 == decade } == true
-                }
-            }
-            .filter { item ->
-                movieGenre?.let { genre -> genre in item.genres } ?: true
-            }
-
-        val sorted = when (movieSort) {
-            MovieSort.TITLE -> matching.sortedBy { it.displayTitle.lowercase() }
-            MovieSort.RECENT -> matching.sortedByDescending { it.addedAt }
-            MovieSort.YEAR -> matching.sortedWith(
-                compareByDescending<MediaRecord> { it.year ?: Int.MIN_VALUE }
-                    .thenBy { it.displayTitle.lowercase() }
-            )
-            MovieSort.UNWATCHED -> matching.sortedWith(
-                compareBy<MediaRecord> { store.isWatched(it.uri) }
-                    .thenBy { it.displayTitle.lowercase() }
-            )
-        }
+        val sorted = MovieQueryEngine.apply(
+            items = library,
+            query = MovieQuery(
+                sort = movieSort,
+                filter = movieFilter,
+                decade = movieDecade,
+                genre = movieGenre,
+            ),
+            isWatched = store::isWatched,
+            matchesSearch = ::matchesSearch,
+        )
 
         return sorted.map { item ->
-                LibraryCard(
-                    key = item.uri,
-                    title = item.displayTitle,
-                    subtitle = buildList {
-                        item.year?.let { add(it.toString()) }
-                        item.genres.take(2).forEach(::add)
-                        if (store.isWatched(item.uri)) add("Watched")
-                    }.joinToString(" • "),
-                    posterPath = item.posterPath,
-                    items = listOf(item),
-                )
-            }
+            LibraryCard(
+                key = item.uri,
+                title = item.displayTitle,
+                subtitle = buildList {
+                    item.year?.let { add(it.toString()) }
+                    item.genres.take(2).forEach(::add)
+                    if (store.isWatched(item.uri)) add("Watched")
+                }.joinToString(" • "),
+                posterPath = item.posterPath,
+                items = listOf(item),
+            )
+        }
     }
 
     private fun matchesSearch(item: MediaRecord): Boolean =
@@ -1283,22 +1250,8 @@ class MainActivity : Activity() {
     }
 
     private fun showMovieFilter() {
-        val decades = library
-            .asSequence()
-            .filter { it.kind == MediaRecord.Kind.MOVIE }
-            .mapNotNull { it.year }
-            .map { (it / 10) * 10 }
-            .distinct()
-            .sortedDescending()
-            .toList()
-        val genres = library
-            .asSequence()
-            .filter { it.kind == MediaRecord.Kind.MOVIE }
-            .flatMap { it.genres.asSequence() }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .sorted()
-            .toList()
+        val decades = MovieQueryEngine.availableDecades(library)
+        val genres = MovieQueryEngine.availableGenres(library)
 
         val labels = buildList {
             add("All movies")
@@ -1346,7 +1299,7 @@ class MainActivity : Activity() {
                     }
                     which == unknownYearIndex -> {
                         movieFilter = MovieFilter.ALL
-                        movieDecade = Int.MIN_VALUE
+                        movieDecade = MovieQueryEngine.UNKNOWN_YEAR
                         movieGenre = null
                     }
                     which >= genreStart -> {
