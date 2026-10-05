@@ -676,44 +676,44 @@ class MainActivity : Activity() {
             }
 
             val token = store.tmdbToken()
-            if (token.isBlank()) return@Thread
-
-            val provider = TmdbMetadataProvider(token)
-            val enricher = LibraryEnricher(provider)
-            val working = scanned.toMutableList()
-            val indexesByUri = working.indices.associateBy { working[it].uri }
-            val candidates = working.filter {
-                it.kind == MediaRecord.Kind.MOVIE || it.kind == MediaRecord.Kind.TV_EPISODE
-            }
-
-            runOnUiThread {
-                progressView.visibility = View.VISIBLE
-                statusView.text = "Library ready • matching metadata…"
-            }
-
-            candidates.chunked(METADATA_BATCH_SIZE).forEachIndexed { batchIndex, batch ->
-                val enrichedBatch = enricher.enrich(batch)
-                enrichedBatch.forEach { item ->
-                    indexesByUri[item.uri]?.let { index -> working[index] = item }
+            if (token.isNotBlank()) {
+                val provider = TmdbMetadataProvider(token)
+                val enricher = LibraryEnricher(provider)
+                val working = scanned.toMutableList()
+                val indexesByUri = working.indices.associateBy { working[it].uri }
+                val candidates = working.filter {
+                    it.kind == MediaRecord.Kind.MOVIE || it.kind == MediaRecord.Kind.TV_EPISODE
                 }
 
-                store.saveLibrary(working)
-
-                val completed = minOf(
-                    (batchIndex + 1) * METADATA_BATCH_SIZE,
-                    candidates.size,
-                )
                 runOnUiThread {
-                    library = working.toList()
-                    renderLibrary()
-                    statusView.text =
-                        "Library ready • metadata " + completed + "/" + candidates.size
+                    progressView.visibility = View.VISIBLE
+                    statusView.text = "Library ready • matching metadata…"
                 }
-            }
 
-            runOnUiThread {
-                progressView.visibility = View.GONE
-                renderLibrary()
+                candidates.chunked(METADATA_BATCH_SIZE).forEachIndexed { batchIndex, batch ->
+                    val enrichedBatch = enricher.enrich(batch)
+                    enrichedBatch.forEach { item ->
+                        indexesByUri[item.uri]?.let { index -> working[index] = item }
+                    }
+
+                    store.saveLibrary(working)
+
+                    val completed = minOf(
+                        (batchIndex + 1) * METADATA_BATCH_SIZE,
+                        candidates.size,
+                    )
+                    runOnUiThread {
+                        library = working.toList()
+                        renderLibrary()
+                        statusView.text =
+                            "Library ready • metadata " + completed + "/" + candidates.size
+                    }
+                }
+
+                runOnUiThread {
+                    progressView.visibility = View.GONE
+                    renderLibrary()
+                }
             }
         }.start()
     }
