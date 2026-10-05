@@ -9,11 +9,13 @@ The current working slice provides:
 - Android Storage Access Framework folder selection where a system picker is available;
 - Android TV fallback using MediaStore storage-volume discovery when no folder picker exists;
 - persisted SAF folders and selected MediaStore volumes, including supported USB/external drives;
+- per-source Movies / TV Shows / Videos / Mixed classification and basic source management;
 - persisted access to selected folders;
 - recursive indexing of common video formats;
 - movie and TV-episode filename recognition, including movie years;
-- Movies, TV Shows and Continue Watching library sections;
-- TMDB poster artwork with local image caching;
+- Movies, TV Shows, Videos and Continue Watching library sections;
+- local library search, movie sorting and A–Z jump navigation for large collections;
+- TMDB poster artwork with local image caching and local video-frame thumbnail fallback when no poster is available;
 - TV episodes grouped under their show;
 - touch and D-pad focusable poster-grid navigation;
 - Media3/ExoPlayer playback with Android TV D-pad control support;
