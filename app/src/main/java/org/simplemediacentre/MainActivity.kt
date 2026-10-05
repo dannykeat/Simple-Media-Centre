@@ -705,7 +705,11 @@ class MainActivity : Activity() {
         Thread {
             val previous = store.loadLibrary().associateBy { it.uri }
             val now = System.currentTimeMillis()
-            val availableVolumes = availableMediaStoreVolumes()
+            val availableVolumes = if (hasVideoReadPermission()) {
+                availableMediaStoreVolumes()
+            } else {
+                emptySet()
+            }
             val unavailableVolumes = mediaStoreVolumes - availableVolumes
             val scanVolumes = mediaStoreVolumes - unavailableVolumes
             val mediaStoreFolders = mediaStoreVolumes.associateWith(store::mediaStoreFolders)
