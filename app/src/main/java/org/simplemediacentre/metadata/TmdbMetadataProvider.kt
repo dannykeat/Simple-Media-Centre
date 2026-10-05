@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets
 class TmdbMetadataProvider(
     private val bearerToken: String,
 ) : MetadataProvider {
+    private val genreCache = mutableMapOf<String, Map<Int, String>>()
     override fun match(item: MediaRecord): MediaMetadata? =
         search(item, limit = 1).firstOrNull()
 
@@ -56,8 +57,39 @@ class TmdbMetadataProvider(
                         overview = result.optNullableString("overview"),
                         posterPath = result.optNullableString("poster_path"),
                         backdropPath = result.optNullableString("backdrop_path"),
+                        genres = genreNames(endpoint, result),
                     )
                 )
+            }
+        }
+    }
+
+    private fun genreNames(endpoint: String, item: JSONObject): List<String> {
+        val ids = item.optJSONArray("genre_ids") ?: return emptyList()
+        val names = genreCache.getOrPut(endpoint) {
+            loadGenreMap(endpoint)
+        }
+        return buildList {
+            for (index in 0 until ids.length()) {
+                val id = ids.optInt(index)
+                names[id]?.let(::add)
+            }
+        }
+    }
+
+    private fun loadGenreMap(endpoint: String): Map<Int, String> {
+        val response = getJson(
+            "https://api.themoviedb.org/3/genre/" + endpoint +
+                "/list?language=en-AU"
+        ) ?: return emptyMap()
+
+        val genres = response.optJSONArray("genres") ?: return emptyMap()
+        return buildMap {
+            for (index in 0 until genres.length()) {
+                val genre = genres.optJSONObject(index) ?: continue
+                val id = genre.optInt("id")
+                val name = genre.optString("name").takeIf { it.isNotBlank() } ?: continue
+                if (id > 0) put(id, name)
             }
         }
     }
