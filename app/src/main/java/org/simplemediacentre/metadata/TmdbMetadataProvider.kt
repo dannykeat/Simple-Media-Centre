@@ -14,7 +14,7 @@ class TmdbMetadataProvider(
         search(item, limit = 1).firstOrNull()
 
     override fun search(item: MediaRecord, limit: Int): List<MediaMetadata> {
-        if (bearerToken.isBlank() || item.kind == (item.kind == MediaRecord.Kind.UNKNOWN || item.kind == MediaRecord.Kind.VIDEO) || limit <= 0) {
+        if (bearerToken.isBlank() || item.kind == MediaRecord.Kind.UNKNOWN || item.kind == MediaRecord.Kind.VIDEO || limit <= 0) {
             return emptyList()
         }
 
