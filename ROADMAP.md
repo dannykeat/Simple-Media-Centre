@@ -30,8 +30,8 @@
 
 ## M2 — media-centre UX
 
-- [x] Movies / TV Shows / Continue Watching views
-- [x] poster-grid presentation
+- [x] Home / Movies / TV Shows / Videos / Continue Watching views
+- [x] poster-grid presentation with local video-frame fallback
 - [x] initial Android TV / D-pad focus treatment
 - [x] Recently Added view
 - [x] search, movie sorting and A–Z jump navigation
@@ -39,7 +39,10 @@
 - [x] subtitle and audio-track selection
 - [x] basic multiple-source management and Movies / TV Shows / Videos / Mixed source typing
 - [ ] background/resumable rescans for large libraries
-- [ ] visual polish, TV-first home/navigation redesign and responsive phone/tablet/TV sizing
+- [ ] further visual polish and responsive phone/tablet/TV sizing
+- [x] TV Show → Season → Episode browsing
+- [x] configuration consolidated under Settings
+- [x] movie/video details and Resume flow
 
 ### Current hardware findings
 
