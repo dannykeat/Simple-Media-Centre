@@ -826,6 +826,8 @@ class MainActivity : Activity() {
 
             append("\nLibrary items: ")
             append(library.size)
+            append("\nCache schema: ")
+            append(store.schemaVersion())
             append("\nMetadata: ")
             append(if (store.tmdbToken().isNotBlank()) "TMDB configured" else "local only")
             append(" • ")
