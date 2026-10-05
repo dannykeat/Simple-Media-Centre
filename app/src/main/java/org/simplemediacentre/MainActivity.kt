@@ -671,7 +671,8 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Simple Media Centre")
             .setMessage(
-                "Local-first video library and player.\n\n" +
+                "Simple Media Centre " + BuildConfig.VERSION_NAME + "\n\n" +
+                    "Local-first video library and player.\n\n" +
                     "This product uses the TMDB API but is not endorsed or certified by TMDB."
             )
             .setPositiveButton("OK", null)
