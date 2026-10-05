@@ -26,6 +26,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.11.1")
     implementation("io.coil-kt.coil3:coil:3.6.3")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+    implementation("io.coil-kt.coil3:coil-video:3.6.3")
 
     testImplementation("junit:junit:4.13.2")
 }
