@@ -720,8 +720,14 @@ class MainActivity : Activity() {
             )
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
-                store.saveTmdbToken(input.text.toString())
-                scanLibrary()
+                val token = input.text.toString().trim()
+                store.saveTmdbToken(token)
+                if (token.isBlank()) {
+                    renderLibrary()
+                    Toast.makeText(this, "Online metadata disabled.", Toast.LENGTH_SHORT).show()
+                } else {
+                    refreshMetadata()
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
