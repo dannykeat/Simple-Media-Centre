@@ -268,6 +268,13 @@ class MainActivity : Activity() {
         showMediaStoreVolumes()
     }
 
+    private fun availableMediaStoreVolumes(): Set<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.getExternalVolumeNames(this)
+        } else {
+            setOf(MEDIASTORE_LEGACY_EXTERNAL)
+        }
+
     private fun hasVideoReadPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
             checkSelfPermission(requiredVideoReadPermission()) == PackageManager.PERMISSION_GRANTED
@@ -697,20 +704,30 @@ class MainActivity : Activity() {
         Thread {
             val previous = store.loadLibrary().associateBy { it.uri }
             val now = System.currentTimeMillis()
+            val availableVolumes = availableMediaStoreVolumes()
+            val unavailableVolumes = mediaStoreVolumes - availableVolumes
+            val scanVolumes = mediaStoreVolumes - unavailableVolumes
             val mediaStoreFolders = mediaStoreVolumes.associateWith(store::mediaStoreFolders)
             val folderSourceIds = mediaStoreFolders.flatMap { (volume, folders) ->
                 folders.map { folder -> store.mediaStoreFolderSourceId(volume, folder) }
             }
             val sourceTypes = (roots + mediaStoreVolumes + folderSourceIds)
                 .associateWith(store::sourceType)
-            var scanned = MediaScanner(this).scan(
+            val fresh = MediaScanner(this).scan(
                 roots,
-                mediaStoreVolumes,
+                scanVolumes,
                 sourceTypes,
                 mediaStoreFolders,
             ).map { item ->
                 carryCachedMetadata(item, previous[item.uri], now)
             }
+            val cachedUnavailable = previous.values.filter { item ->
+                item.sourceId
+                    ?.substringBefore('|')
+                    ?.let { it in unavailableVolumes } == true
+            }
+            var scanned = (fresh + cachedUnavailable)
+                .distinctBy(MediaRecord::uri)
 
             store.saveLibrary(scanned)
 
@@ -718,6 +735,12 @@ class MainActivity : Activity() {
                 library = scanned
                 progressView.visibility = View.GONE
                 renderLibrary()
+                if (unavailableVolumes.isNotEmpty()) {
+                    statusView.text = statusView.text.toString() +
+                        " • " + unavailableVolumes.size + " storage source" +
+                        (if (unavailableVolumes.size == 1) "" else "s") +
+                        " unavailable; cached items kept"
+                }
             }
 
             val token = store.tmdbToken()
