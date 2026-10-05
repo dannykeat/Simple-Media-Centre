@@ -822,7 +822,13 @@ class MainActivity : Activity() {
                 scanVolumes,
                 sourceTypes,
                 mediaStoreFolders,
-            ).map { item ->
+            ) { count ->
+                runOnUiThread {
+                    if (generation == scanGeneration) {
+                        statusView.text = "Scanning media… " + count + " videos found"
+                    }
+                }
+            }.map { item ->
                 carryCachedMetadata(item, previous[item.uri], now)
             }
             val cachedUnavailable = previous.values.filter { item ->
