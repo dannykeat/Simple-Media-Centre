@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import coil3.load
 import coil3.request.crossfade
+import coil3.video.VideoFrameDecoder
 import org.simplemediacentre.model.MediaRecord
 
 class MediaLibraryAdapter(
@@ -87,6 +88,11 @@ class MediaLibraryAdapter(
             ?: card.items.firstOrNull()?.uri
         poster.load(artwork) {
             crossfade(true)
+            if (card.posterPath == null && artwork != null) {
+                decoderFactory { result, options, _ ->
+                    VideoFrameDecoder(result.source, options)
+                }
+            }
         }
 
         view.contentDescription = if (card.subtitle.isBlank()) {
