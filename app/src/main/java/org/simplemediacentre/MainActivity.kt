@@ -746,16 +746,44 @@ class MainActivity : Activity() {
         library
             .filter { it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN }
             .filter { matchesSearch(it) }
-            .sortedBy { it.displayTitle.lowercase() }
-            .map { item ->
-                LibraryCard(
-                    key = "video:" + item.uri,
-                    title = item.displayTitle,
-                    subtitle = if (store.isWatched(item.uri)) "Watched" else "",
-                    posterPath = item.posterPath,
-                    items = listOf(item),
-                )
+            .groupBy { item ->
+                val folder = item.relativePath
+                    ?.trim('/')
+                    ?.substringBefore('/')
+                    ?.takeIf { it.isNotBlank() }
+                item.sourceId.orEmpty() + "|" + (folder ?: "")
             }
+            .values
+            .map { items ->
+                val ordered = items.sortedBy { it.displayTitle.lowercase() }
+                val representative = ordered.first()
+                val folder = representative.relativePath
+                    ?.trim('/')
+                    ?.substringBefore('/')
+                    ?.takeIf { it.isNotBlank() }
+                val label = folder ?: representative.sourceId?.let(::sourceLabel) ?: "Videos"
+
+                if (ordered.size == 1 && folder == null) {
+                    LibraryCard(
+                        key = "video:" + representative.uri,
+                        title = representative.displayTitle,
+                        subtitle = if (store.isWatched(representative.uri)) "Watched" else "",
+                        posterPath = representative.posterPath,
+                        items = ordered,
+                    )
+                } else {
+                    val watched = ordered.count { store.isWatched(it.uri) }
+                    LibraryCard(
+                        key = "videofolder:" + representative.sourceId.orEmpty() + ":" + label,
+                        title = label,
+                        subtitle = ordered.size.toString() + " videos" +
+                            (if (watched > 0) " • " + watched + " watched" else ""),
+                        posterPath = representative.posterPath,
+                        items = ordered,
+                    )
+                }
+            }
+            .sortedBy { it.title.lowercase() }
 
     private fun recentCards(): List<LibraryCard> =
         library
@@ -802,11 +830,42 @@ class MainActivity : Activity() {
             .sortedBy { it.title.lowercase() }
 
     private fun openCard(card: LibraryCard) {
-        if (card.items.size == 1) {
-            showDetails(card)
-        } else {
-            showEpisodePicker(card)
+        when {
+            card.key.startsWith("videofolder:") -> showVideoFolder(card)
+            card.items.size == 1 -> showDetails(card)
+            else -> showEpisodePicker(card)
         }
+    }
+
+    private fun showVideoFolder(card: LibraryCard) {
+        val ordered = card.items.sortedBy { it.displayTitle.lowercase() }
+        val labels = ordered.map { item ->
+            val position = store.playbackPosition(item.uri)
+            val resume = if (position > 30_000L && !store.isWatched(item.uri)) {
+                " • Resume " + formatPosition(position)
+            } else {
+                ""
+            }
+            val watched = if (store.isWatched(item.uri)) " • Watched" else ""
+            item.displayTitle + resume + watched
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(card.title)
+            .setItems(labels) { _, which ->
+                val item = ordered[which]
+                showDetails(
+                    LibraryCard(
+                        key = "video:" + item.uri,
+                        title = item.displayTitle,
+                        subtitle = item.relativePath.orEmpty(),
+                        posterPath = item.posterPath,
+                        items = listOf(item),
+                    )
+                )
+            }
+            .setNegativeButton("Back", null)
+            .show()
     }
 
     private fun showEpisodePicker(card: LibraryCard) {
