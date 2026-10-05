@@ -288,7 +288,7 @@ class MainActivity : Activity() {
             .setItems(labels) { _, which ->
                 val volume = volumes[which]
                 store.addMediaStoreVolume(volume)
-                chooseSourceType(volume)
+                chooseMediaStoreFolders(volume)
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -336,6 +336,79 @@ class MainActivity : Activity() {
                 Toast.LENGTH_LONG,
             ).show()
         }
+    }
+
+    private fun chooseMediaStoreFolders(volumeName: String) {
+        progressView.visibility = View.VISIBLE
+        statusView.text = "Finding folders on storage…"
+
+        Thread {
+            val folders = MediaScanner(this).discoverMediaStoreFolders(volumeName)
+            val selected = store.mediaStoreFolders(volumeName)
+
+            runOnUiThread {
+                progressView.visibility = View.GONE
+                renderLibrary()
+
+                if (folders.isEmpty()) {
+                    chooseSourceType(volumeName)
+                    return@runOnUiThread
+                }
+
+                val checked = folders.map { it in selected }.toBooleanArray()
+                AlertDialog.Builder(this)
+                    .setTitle("Choose folders")
+                    .setMessage(
+                        "Select the folders Simple Media Centre should scan. " +
+                            "If none are selected, the whole storage volume is scanned."
+                    )
+                    .setMultiChoiceItems(folders.toTypedArray(), checked) { _, which, value ->
+                        checked[which] = value
+                    }
+                    .setPositiveButton("Continue") { _, _ ->
+                        val chosen = folders.filterIndexed { index, _ -> checked[index] }
+                        store.setMediaStoreFolders(volumeName, chosen)
+                        if (chosen.isEmpty()) {
+                            chooseSourceType(volumeName)
+                        } else {
+                            chooseFolderTypes(volumeName, chosen, 0)
+                        }
+                    }
+                    .setNeutralButton("Whole volume") { _, _ ->
+                        store.setMediaStoreFolders(volumeName, emptySet())
+                        chooseSourceType(volumeName)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }.start()
+    }
+
+    private fun chooseFolderTypes(volumeName: String, folders: List<String>, index: Int) {
+        if (index >= folders.size) {
+            scanLibrary()
+            return
+        }
+
+        val folder = folders[index]
+        val sourceId = store.mediaStoreFolderSourceId(volumeName, folder)
+        val types = SourceType.entries.toTypedArray()
+        val labels = types.map(SourceType::label).toTypedArray()
+        val current = types.indexOf(store.sourceType(sourceId)).coerceAtLeast(0)
+
+        AlertDialog.Builder(this)
+            .setTitle(folder)
+            .setMessage("What kind of videos are in this folder?")
+            .setSingleChoiceItems(labels, current) { dialog, which ->
+                store.setSourceType(sourceId, types[which])
+                dialog.dismiss()
+                chooseFolderTypes(volumeName, folders, index + 1)
+            }
+            .setNegativeButton("Automatic") { _, _ ->
+                store.setSourceType(sourceId, SourceType.MIXED)
+                chooseFolderTypes(volumeName, folders, index + 1)
+            }
+            .show()
     }
 
     private fun chooseSourceType(sourceId: String) {
@@ -525,11 +598,17 @@ class MainActivity : Activity() {
         Thread {
             val previous = store.loadLibrary().associateBy { it.uri }
             val now = System.currentTimeMillis()
-            val sourceTypes = (roots + mediaStoreVolumes).associateWith(store::sourceType)
+            val mediaStoreFolders = mediaStoreVolumes.associateWith(store::mediaStoreFolders)
+            val folderSourceIds = mediaStoreFolders.flatMap { (volume, folders) ->
+                folders.map { folder -> store.mediaStoreFolderSourceId(volume, folder) }
+            }
+            val sourceTypes = (roots + mediaStoreVolumes + folderSourceIds)
+                .associateWith(store::sourceType)
             var scanned = MediaScanner(this).scan(
                 roots,
                 mediaStoreVolumes,
                 sourceTypes,
+                mediaStoreFolders,
             ).map { item ->
                 carryCachedMetadata(item, previous[item.uri], now)
             }
