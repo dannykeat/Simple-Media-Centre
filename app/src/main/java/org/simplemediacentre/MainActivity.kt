@@ -317,9 +317,7 @@ class MainActivity : Activity() {
                     "Simple Media Centre will index the videos Android exposes from it."
             )
             .setItems(labels) { _, which ->
-                val volume = volumes[which]
-                store.addMediaStoreVolume(volume)
-                chooseMediaStoreFolders(volume)
+                chooseMediaStoreFolders(volumes[which])
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -382,6 +380,7 @@ class MainActivity : Activity() {
                 renderLibrary()
 
                 if (folders.isEmpty()) {
+                    store.addMediaStoreVolume(volumeName)
                     chooseSourceType(volumeName)
                     return@runOnUiThread
                 }
@@ -398,6 +397,7 @@ class MainActivity : Activity() {
                     }
                     .setPositiveButton("Continue") { _, _ ->
                         val chosen = folders.filterIndexed { index, _ -> checked[index] }
+                        store.addMediaStoreVolume(volumeName)
                         store.setMediaStoreFolders(volumeName, chosen)
                         if (chosen.isEmpty()) {
                             chooseSourceType(volumeName)
@@ -406,6 +406,7 @@ class MainActivity : Activity() {
                         }
                     }
                     .setNeutralButton("Whole volume") { _, _ ->
+                        store.addMediaStoreVolume(volumeName)
                         store.setMediaStoreFolders(volumeName, emptySet())
                         chooseSourceType(volumeName)
                     }
