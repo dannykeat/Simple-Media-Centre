@@ -50,6 +50,8 @@ class MainActivity : Activity() {
     private var section = Section.HOME
     private var searchQuery = ""
     private var movieSort = MovieSort.TITLE
+    private var movieFilter = MovieFilter.ALL
+    private var movieDecade: Int? = null
     private var tvSort = LibrarySort.TITLE
     private var videoSort = LibrarySort.TITLE
 
@@ -64,6 +66,12 @@ class MainActivity : Activity() {
         TITLE,
         RECENT,
         UNWATCHED,
+    }
+
+    private enum class MovieFilter {
+        ALL,
+        UNWATCHED,
+        WATCHED,
     }
 
     private data class ConfiguredSource(
@@ -782,6 +790,11 @@ class MainActivity : Activity() {
                 val suffix = if (visibleCards.size == 1) "" else "s"
                 visibleCards.size.toString() + " " + label + suffix +
                     (if (searchQuery.isNotBlank()) " • Search: " + searchQuery else "") +
+                    (if (section == Section.MOVIES && (movieFilter != MovieFilter.ALL || movieDecade != null)) {
+                        " • Filtered"
+                    } else {
+                        ""
+                    }) +
                     (if (store.tmdbToken().isNotBlank()) " • " + matched + " files matched" else "")
             }
         }
@@ -846,6 +859,20 @@ class MainActivity : Activity() {
         val matching = library
             .filter { it.kind == MediaRecord.Kind.MOVIE }
             .filter { matchesSearch(it) }
+            .filter { item ->
+                when (movieFilter) {
+                    MovieFilter.ALL -> true
+                    MovieFilter.UNWATCHED -> !store.isWatched(item.uri)
+                    MovieFilter.WATCHED -> store.isWatched(item.uri)
+                }
+            }
+            .filter { item ->
+                when (val decade = movieDecade) {
+                    null -> true
+                    Int.MIN_VALUE -> item.year == null
+                    else -> item.year?.let { (it / 10) * 10 == decade } == true
+                }
+            }
 
         val sorted = when (movieSort) {
             MovieSort.TITLE -> matching.sortedBy { it.displayTitle.lowercase() }
@@ -884,7 +911,7 @@ class MainActivity : Activity() {
 
     private fun showBrowseOptions() {
         val labels = when (section) {
-            Section.MOVIES -> arrayOf("Sort movies", "Jump A–Z")
+            Section.MOVIES -> arrayOf("Sort movies", "Filter movies", "Jump A–Z")
             Section.TV -> arrayOf("Sort TV shows", "Jump A–Z")
             Section.VIDEOS -> arrayOf("Sort videos", "Jump A–Z")
             else -> emptyArray()
@@ -897,15 +924,23 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Browse")
             .setItems(labels) { _, which ->
-                if (which == 0) {
-                    when (section) {
-                        Section.MOVIES -> showMovieSort()
-                        Section.TV -> showLibrarySort("Sort TV shows", tvSort) { tvSort = it }
-                        Section.VIDEOS -> showLibrarySort("Sort videos", videoSort) { videoSort = it }
+                when (section) {
+                    Section.MOVIES -> when (which) {
+                        0 -> showMovieSort()
+                        1 -> showMovieFilter()
                         else -> showAlphabetJump()
                     }
-                } else {
-                    showAlphabetJump()
+                    Section.TV -> if (which == 0) {
+                        showLibrarySort("Sort TV shows", tvSort) { tvSort = it }
+                    } else {
+                        showAlphabetJump()
+                    }
+                    Section.VIDEOS -> if (which == 0) {
+                        showLibrarySort("Sort videos", videoSort) { videoSort = it }
+                    } else {
+                        showAlphabetJump()
+                    }
+                    else -> showAlphabetJump()
                 }
             }
             .setNegativeButton("Close", null)
@@ -920,6 +955,57 @@ class MainActivity : Activity() {
                 movieSort = MovieSort.entries[which]
                 renderLibrary()
                 dialog.dismiss()
+                gridView.requestFocus()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showMovieFilter() {
+        val decades = library
+            .asSequence()
+            .filter { it.kind == MediaRecord.Kind.MOVIE }
+            .mapNotNull { it.year }
+            .map { (it / 10) * 10 }
+            .distinct()
+            .sortedDescending()
+            .toList()
+
+        val labels = buildList {
+            add("All movies")
+            add("Unwatched")
+            add("Watched")
+            decades.forEach { add(it.toString() + "s") }
+            add("Unknown year")
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Filter movies")
+            .setItems(labels) { _, which ->
+                when {
+                    which == 0 -> {
+                        movieFilter = MovieFilter.ALL
+                        movieDecade = null
+                    }
+                    which == 1 -> {
+                        movieFilter = MovieFilter.UNWATCHED
+                        movieDecade = null
+                    }
+                    which == 2 -> {
+                        movieFilter = MovieFilter.WATCHED
+                        movieDecade = null
+                    }
+                    which in 3 until 3 + decades.size -> {
+                        movieFilter = MovieFilter.ALL
+                        movieDecade = decades[which - 3]
+                    }
+                    else -> {
+                        movieFilter = MovieFilter.ALL
+                        movieDecade = Int.MIN_VALUE
+                    }
+                }
+                renderLibrary()
+                gridView.setSelection(0)
                 gridView.requestFocus()
             }
             .setNegativeButton("Cancel", null)
