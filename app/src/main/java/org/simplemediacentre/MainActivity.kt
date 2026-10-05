@@ -626,16 +626,24 @@ class MainActivity : Activity() {
     private fun showMetadataSettings() {
         val configured = store.tmdbToken().isNotBlank()
         val labels = if (configured) {
-            arrayOf("TMDB: configured", "Clear TMDB token", "Rescan metadata")
+            arrayOf(
+                "Configure / replace TMDB token",
+                "Refresh metadata",
+                "Disable online metadata",
+                "Clear cached metadata",
+            )
         } else {
-            arrayOf("TMDB: not configured", "Configure TMDB")
+            arrayOf(
+                "Configure TMDB",
+                "Clear cached metadata",
+            )
         }
 
         AlertDialog.Builder(this)
             .setTitle("Metadata")
             .setMessage(
                 if (configured) {
-                    "Online metadata is optional. Local titles and video thumbnails remain available without it."
+                    "Online metadata is optional. The local library remains usable while metadata refreshes in the background."
                 } else {
                     "Local titles, thumbnails and playback work without an online metadata account."
                 }
@@ -644,18 +652,57 @@ class MainActivity : Activity() {
                 if (configured) {
                     when (which) {
                         0 -> showTmdbSetup()
-                        1 -> {
+                        1 -> refreshMetadata()
+                        2 -> {
                             store.saveTmdbToken("")
-                            Toast.makeText(this, "TMDB disabled.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Online metadata disabled.", Toast.LENGTH_SHORT).show()
                         }
-                        2 -> scanLibrary()
+                        3 -> clearCachedMetadata()
                     }
-                } else if (which == 1) {
-                    showTmdbSetup()
+                } else {
+                    when (which) {
+                        0 -> showTmdbSetup()
+                        1 -> clearCachedMetadata()
+                    }
                 }
             }
             .setNegativeButton("Close", null)
             .show()
+    }
+
+    private fun refreshMetadata() {
+        val token = store.tmdbToken()
+        if (token.isBlank()) {
+            Toast.makeText(this, "Configure TMDB first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (library.isEmpty()) {
+            Toast.makeText(this, "The library is empty.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Thread {
+            enrichMetadataIncrementally(library, token)
+        }.start()
+    }
+
+    private fun clearCachedMetadata() {
+        val cleared = library.map { item ->
+            item.copy(
+                metadataId = null,
+                metadataTitle = null,
+                overview = null,
+                posterPath = null,
+                backdropPath = null,
+                episodeMetadataId = null,
+                episodeTitle = null,
+                episodeOverview = null,
+            )
+        }
+        library = cleared
+        store.saveLibrary(cleared)
+        renderLibrary()
+        Toast.makeText(this, "Cached metadata cleared.", Toast.LENGTH_SHORT).show()
     }
 
     private fun showTmdbSetup() {
@@ -774,45 +821,54 @@ class MainActivity : Activity() {
 
             val token = store.tmdbToken()
             if (token.isNotBlank()) {
-                val provider = TmdbMetadataProvider(token)
-                val enricher = LibraryEnricher(provider)
-                val working = scanned.toMutableList()
-                val indexesByUri = working.indices.associateBy { working[it].uri }
-                val candidates = working.filter {
-                    it.kind == MediaRecord.Kind.MOVIE || it.kind == MediaRecord.Kind.TV_EPISODE
-                }
-
-                runOnUiThread {
-                    progressView.visibility = View.VISIBLE
-                    statusView.text = "Library ready • matching metadata…"
-                }
-
-                candidates.chunked(METADATA_BATCH_SIZE).forEachIndexed { batchIndex, batch ->
-                    val enrichedBatch = enricher.enrich(batch)
-                    enrichedBatch.forEach { item ->
-                        indexesByUri[item.uri]?.let { index -> working[index] = item }
-                    }
-
-                    store.saveLibrary(working)
-
-                    val completed = minOf(
-                        (batchIndex + 1) * METADATA_BATCH_SIZE,
-                        candidates.size,
-                    )
-                    runOnUiThread {
-                        library = working.toList()
-                        renderLibrary()
-                        statusView.text =
-                            "Library ready • metadata " + completed + "/" + candidates.size
-                    }
-                }
-
-                runOnUiThread {
-                    progressView.visibility = View.GONE
-                    renderLibrary()
-                }
+                enrichMetadataIncrementally(scanned, token)
             }
         }.start()
+    }
+
+    private fun enrichMetadataIncrementally(
+        base: List<MediaRecord>,
+        token: String,
+    ): List<MediaRecord> {
+        val enricher = LibraryEnricher(TmdbMetadataProvider(token))
+        val working = base.toMutableList()
+        val indexesByUri = working.indices.associateBy { working[it].uri }
+        val candidates = working.filter {
+            it.kind == MediaRecord.Kind.MOVIE || it.kind == MediaRecord.Kind.TV_EPISODE
+        }
+
+        runOnUiThread {
+            progressView.visibility = View.VISIBLE
+            statusView.text = "Library ready • matching metadata…"
+        }
+
+        candidates.chunked(METADATA_BATCH_SIZE).forEachIndexed { batchIndex, batch ->
+            val enrichedBatch = enricher.enrich(batch)
+            enrichedBatch.forEach { item ->
+                indexesByUri[item.uri]?.let { index -> working[index] = item }
+            }
+
+            store.saveLibrary(working)
+
+            val completed = minOf(
+                (batchIndex + 1) * METADATA_BATCH_SIZE,
+                candidates.size,
+            )
+            runOnUiThread {
+                library = working.toList()
+                renderLibrary()
+                statusView.text =
+                    "Library ready • metadata " + completed + "/" + candidates.size
+            }
+        }
+
+        runOnUiThread {
+            library = working.toList()
+            progressView.visibility = View.GONE
+            renderLibrary()
+        }
+
+        return working
     }
 
     private fun carryCachedMetadata(
