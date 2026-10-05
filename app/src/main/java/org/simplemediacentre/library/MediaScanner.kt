@@ -67,17 +67,21 @@ class MediaScanner(private val context: Context) {
 
         children.forEach { file ->
             when {
-                file.isDirectory -> scanDirectory(
-                    directory = file,
-                    results = results,
-                    sourceType = sourceType,
-                    sourceId = sourceId,
-                    relativePath = if (relativePath.isBlank()) {
+                file.isDirectory -> {
+                    val childPath = if (relativePath.isBlank()) {
                         file.name.orEmpty()
                     } else {
                         relativePath + "/" + file.name.orEmpty()
-                    },
-                )
+                    }
+                    scanDirectory(
+                        directory = file,
+                        results = results,
+                        sourceType = sourceType,
+                        sourceId = sourceId,
+                        relativePath = childPath,
+                    )
+                }
+
                 file.isFile && isVideo(file) -> {
                     val name = file.name ?: return@forEach
                     val parsed = FilenameParser.parse(name)
@@ -94,7 +98,6 @@ class MediaScanner(private val context: Context) {
                         modifiedAt = file.lastModified(),
                     )
                 }
-                }
             }
         }
     }
@@ -104,6 +107,7 @@ class MediaScanner(private val context: Context) {
 
         val collection = MediaStore.Video.Media.getContentUri(volumeName)
         val folders = linkedSetOf<String>()
+
         try {
             context.contentResolver.query(
                 collection,
@@ -114,6 +118,7 @@ class MediaScanner(private val context: Context) {
             )?.use { cursor ->
                 val pathColumn = cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
                 if (pathColumn < 0) return emptyList()
+
                 while (cursor.moveToNext()) {
                     cursor.getString(pathColumn)
                         ?.trim('/')
@@ -126,7 +131,11 @@ class MediaScanner(private val context: Context) {
         } catch (_: IllegalArgumentException) {
             return emptyList()
         }
-        return folders.sortedWith(compareBy<String> { it.count { ch -> ch == '/' } }.thenBy { it.lowercase() })
+
+        return folders.sortedWith(
+            compareBy<String> { path -> path.count { it == '/' } }
+                .thenBy { it.lowercase() }
+        )
     }
 
     private fun scanMediaStoreVolume(
@@ -160,8 +169,7 @@ class MediaScanner(private val context: Context) {
                 null,
             )?.use { cursor ->
                 val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                val nameColumn =
-                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
                 val modifiedColumn =
                     cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
                 val relativePathColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -174,6 +182,37 @@ class MediaScanner(private val context: Context) {
                     val id = cursor.getLong(idColumn)
                     val name = cursor.getString(nameColumn) ?: continue
                     if (!hasSupportedExtension(name)) continue
+
+                    val relativePath = if (relativePathColumn >= 0) {
+                        cursor.getString(relativePathColumn)
+                            ?.trim('/')
+                            ?.takeIf { it.isNotBlank() }
+                    } else {
+                        null
+                    }
+
+                    val selectedFolder = selectedFolders
+                        .filter { folder ->
+                            relativePath == folder ||
+                                relativePath?.startsWith(folder + "/") == true
+                        }
+                        .maxByOrNull(String::length)
+
+                    if (selectedFolders.isNotEmpty() && selectedFolder == null) continue
+
+                    val sourceId = selectedFolder
+                        ?.let { volumeName + "|" + it }
+                        ?: volumeName
+                    val sourceType = sourceTypes[sourceId] ?: volumeSourceType
+                    val displayRelativePath =
+                        if (selectedFolder != null && relativePath != null) {
+                            relativePath
+                                .removePrefix(selectedFolder)
+                                .trim('/')
+                                .takeIf { it.isNotBlank() }
+                        } else {
+                            relativePath
+                        }
 
                     val parsed = FilenameParser.parse(name)
                     results += MediaRecord(
@@ -197,7 +236,10 @@ class MediaScanner(private val context: Context) {
         }
     }
 
-    private fun kindFor(parsed: MediaRecord.Kind, sourceType: SourceType): MediaRecord.Kind =
+    private fun kindFor(
+        parsed: MediaRecord.Kind,
+        sourceType: SourceType,
+    ): MediaRecord.Kind =
         when (sourceType) {
             SourceType.MOVIES -> MediaRecord.Kind.MOVIE
             SourceType.TV_SHOWS -> MediaRecord.Kind.TV_EPISODE
