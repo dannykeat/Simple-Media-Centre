@@ -13,7 +13,7 @@
 - [x] resume position
 - [x] parser unit tests
 - [x] validate command-line build on JDK 17 / Gradle 9.6 / API 37.0
-- [ ] validate on a real Android/Android TV device
+- [ ] complete real Android TV validation (folder selection and ~600-file indexing passed on MECOOL; playback failed and is under active repair)
 
 ## M1 — metadata
 
@@ -34,12 +34,20 @@
 - [x] poster-grid presentation
 - [x] initial Android TV / D-pad focus treatment
 - [x] Recently Added view
-- [ ] search and sort
+- [x] search, movie sorting and A–Z jump navigation
 - [x] watched/unwatched state
 - [x] subtitle and audio-track selection
-- [ ] multiple media sources and source management
+- [x] basic multiple-source management and Movies / TV Shows / Videos / Mixed source typing
 - [ ] background/resumable rescans for large libraries
-- [ ] visual polish and responsive phone/tablet/TV sizing
+- [ ] visual polish, TV-first home/navigation redesign and responsive phone/tablet/TV sizing
+
+### Current hardware findings
+
+- MECOOL Android TV: folder/source selection works.
+- Approximately 600 movies indexed with correct parsed titles.
+- TMDB artwork was absent during the test; local video-frame thumbnail fallback is now being added.
+- Large-library browsing needed search/sort/alphabet navigation; these are now implemented for the next test.
+- Movie playback failed on hardware; Media3 decoder fallback and visible playback-error diagnostics are now implemented for the next test.
 
 ## M3 — robustness
 
