@@ -192,6 +192,15 @@ class LibraryStore(context: Context) {
             .apply()
     }
 
+    fun lastPlayed(uri: String): Long =
+        preferences.getLong(KEY_LAST_PLAYED_PREFIX + uri, 0L)
+
+    fun markPlayed(uri: String, atMs: Long = System.currentTimeMillis()) {
+        preferences.edit()
+            .putLong(KEY_LAST_PLAYED_PREFIX + uri, atMs)
+            .apply()
+    }
+
     private fun JSONObject.optIntOrNull(key: String): Int? =
         if (!has(key) || isNull(key)) null else optInt(key)
 
@@ -208,6 +217,7 @@ class LibraryStore(context: Context) {
         const val KEY_MEDIASTORE_VOLUMES = "mediastore_volumes"
         const val KEY_POSITION_PREFIX = "position:"
         const val KEY_WATCHED_PREFIX = "watched:"
+        const val KEY_LAST_PLAYED_PREFIX = "last_played:"
         const val KEY_SOURCE_TYPE_PREFIX = "source_type:"
         const val KEY_SOURCE_LABEL_PREFIX = "source_label:"
         const val KEY_MEDIASTORE_FOLDERS_PREFIX = "mediastore_folders:"
