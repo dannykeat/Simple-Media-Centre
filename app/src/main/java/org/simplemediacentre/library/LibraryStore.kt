@@ -36,11 +36,34 @@ class LibraryStore(context: Context) {
 
     fun removeMediaStoreVolume(volumeName: String) {
         val updated = mediaStoreVolumes().toMutableSet().apply { remove(volumeName) }
-        preferences.edit()
+        val editor = preferences.edit()
             .putStringSet(KEY_MEDIASTORE_VOLUMES, updated)
             .remove(KEY_SOURCE_TYPE_PREFIX + volumeName)
+            .remove(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName)
+        mediaStoreFolders(volumeName).forEach { folder ->
+            editor.remove(KEY_SOURCE_TYPE_PREFIX + mediaStoreFolderSourceId(volumeName, folder))
+        }
+        editor.apply()
+    }
+
+    fun mediaStoreFolders(volumeName: String): Set<String> =
+        preferences.getStringSet(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName, emptySet())
+            ?.mapNotNull(::normalizeFolderPath)
+            ?.toSet()
+            .orEmpty()
+
+    fun setMediaStoreFolders(volumeName: String, folders: Collection<String>) {
+        val normalized = folders.mapNotNull(::normalizeFolderPath).toSet()
+        preferences.edit()
+            .putStringSet(KEY_MEDIASTORE_FOLDERS_PREFIX + volumeName, normalized)
             .apply()
     }
+
+    fun mediaStoreFolderSourceId(volumeName: String, folder: String): String =
+        volumeName + "|" + normalizeFolderPath(folder).orEmpty()
+
+    private fun normalizeFolderPath(path: String): String? =
+        path.trim().trim('/').takeIf { it.isNotBlank() }
 
     fun sourceType(sourceId: String): SourceType {
         val raw = preferences.getString(KEY_SOURCE_TYPE_PREFIX + sourceId, null)
@@ -163,5 +186,6 @@ class LibraryStore(context: Context) {
         const val KEY_POSITION_PREFIX = "position:"
         const val KEY_WATCHED_PREFIX = "watched:"
         const val KEY_SOURCE_TYPE_PREFIX = "source_type:"
+        const val KEY_MEDIASTORE_FOLDERS_PREFIX = "mediastore_folders:"
     }
 }
