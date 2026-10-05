@@ -37,7 +37,8 @@
 - [x] search, movie sorting and A–Z jump navigation
 - [x] watched/unwatched state
 - [x] subtitle and audio-track selection
-- [x] basic multiple-source management and Movies / TV Shows / Videos / Mixed source typing
+- [x] multiple-source management and Movies / TV Shows / Videos / Mixed source typing
+- [x] MediaStore subfolder selection with independent per-folder content types
 - [ ] background/resumable rescans for large libraries
 - [ ] further visual polish and responsive phone/tablet/TV sizing
 - [x] TV Show → Season → Episode browsing
@@ -48,15 +49,16 @@
 
 - MECOOL Android TV: folder/source selection works.
 - Approximately 600 movies indexed with correct parsed titles.
-- TMDB artwork was absent during the test; local video-frame thumbnail fallback is now being added.
+- TMDB artwork was absent during the test; local video-frame thumbnail fallback has now been added.
 - Large-library browsing needed search/sort/alphabet navigation; these are now implemented for the next test.
-- Movie playback failed on hardware; Media3 decoder fallback and visible playback-error diagnostics are now implemented for the next test.
+- Movie playback failed on hardware; Media3 decoder fallback, persistent error diagnostics, retry and external-player fallback are implemented for the next test.
 
 ## M3 — robustness
 
 - [ ] database-backed library once schema requirements stabilise
 - [ ] detect removed/renamed files
 - [ ] scan cancellation and progress
-- [ ] metadata refresh policy
+- [ ] metadata refresh policy and cancellable/batched enrichment
+- [x] publish local scan results before optional online metadata enrichment
 - [ ] migration/versioning tests
 - [ ] broader device, codec and USB-drive validation
