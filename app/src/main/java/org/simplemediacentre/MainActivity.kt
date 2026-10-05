@@ -1590,11 +1590,39 @@ class MainActivity : Activity() {
             builder.setNeutralButton("Actions") { _, _ ->
                 showSingleItemActions(card, watched)
             }
-        } else if (store.tmdbToken().isNotBlank()) {
-            builder.setNeutralButton("Fix match") { _, _ -> promptFixMatch(card) }
+        } else {
+            builder.setNeutralButton("Actions") { _, _ ->
+                showGroupActions(card)
+            }
         }
 
         builder.show()
+    }
+
+    private fun showGroupActions(card: LibraryCard) {
+        val allWatched = card.items.all { store.isWatched(it.uri) }
+        val labels = buildList {
+            add(if (allWatched) "Mark all unwatched" else "Mark all watched")
+            if (store.tmdbToken().isNotBlank()) add("Fix match")
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(card.title)
+            .setItems(labels) { _, which ->
+                when (labels[which]) {
+                    "Mark all watched" -> {
+                        card.items.forEach { store.setWatched(it.uri, true) }
+                        renderLibrary()
+                    }
+                    "Mark all unwatched" -> {
+                        card.items.forEach { store.setWatched(it.uri, false) }
+                        renderLibrary()
+                    }
+                    "Fix match" -> promptFixMatch(card)
+                }
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun localMediaSummary(item: MediaRecord): String {
