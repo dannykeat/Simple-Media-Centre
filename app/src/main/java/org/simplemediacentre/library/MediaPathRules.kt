@@ -31,7 +31,7 @@ object MediaPathRules {
 
             if (parts.size >= 2) {
                 val secondLevel = parts.take(2).joinToString("/")
-                val descendantCount = unique.count { other ->
+                val descendantCount = normalized.count { other ->
                     other.startsWith(secondLevel + "/")
                 }
                 val directCount = directCounts[secondLevel] ?: 0
