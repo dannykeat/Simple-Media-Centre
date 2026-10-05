@@ -1349,7 +1349,7 @@ class MainActivity : Activity() {
     private fun showEpisodeDetails(episode: MediaRecord) {
         val summary = episode.episodeOverview?.takeIf { it.isNotBlank() }
             ?: episode.overview?.takeIf { it.isNotBlank() }
-            ?: "No online description is available for this episode."
+            ?: localMediaSummary(episode)
 
         val watched = store.isWatched(episode.uri)
         val position = store.playbackPosition(episode.uri)
@@ -1376,7 +1376,7 @@ class MainActivity : Activity() {
             }
             append(
                 representative.overview?.takeIf { it.isNotBlank() }
-                    ?: "No online description is available for this item."
+                    ?: localMediaSummary(representative)
             )
         }
 
@@ -1404,6 +1404,19 @@ class MainActivity : Activity() {
         }
 
         builder.show()
+    }
+
+    private fun localMediaSummary(item: MediaRecord): String {
+        val lines = buildList {
+            item.year?.let { add("Year: " + it) }
+            item.relativePath?.takeIf { it.isNotBlank() }?.let { add("Folder: " + it) }
+            item.sourceId?.let { sourceId ->
+                val label = sourceLabel(sourceId)
+                if (label.isNotBlank()) add("Source: " + label)
+            }
+            add("File: " + item.fileName)
+        }
+        return lines.joinToString("\n")
     }
 
     private fun showSingleItemActions(
