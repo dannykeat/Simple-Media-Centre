@@ -925,7 +925,10 @@ class MainActivity : Activity() {
             return scanned.copy(addedAt = now)
         }
 
-        if (previous.fileName != scanned.fileName || previous.modifiedAt != scanned.modifiedAt) {
+        if (previous.fileName != scanned.fileName ||
+            previous.modifiedAt != scanned.modifiedAt ||
+            previous.kind != scanned.kind
+        ) {
             return scanned.copy(addedAt = previous.addedAt.takeIf { it > 0L } ?: now)
         }
 
