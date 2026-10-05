@@ -17,6 +17,7 @@ import android.widget.EditText
 import android.widget.GridView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.SearchView
 import android.widget.TextView
 import android.widget.Toast
 import org.simplemediacentre.library.LibraryStore
@@ -43,6 +44,15 @@ class MainActivity : Activity() {
     private var library: List<MediaRecord> = emptyList()
     private var visibleCards: List<LibraryCard> = emptyList()
     private var section = Section.MOVIES
+    private var searchQuery = ""
+    private var movieSort = MovieSort.TITLE
+
+    private enum class MovieSort {
+        TITLE,
+        RECENT,
+        YEAR,
+        UNWATCHED,
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +89,27 @@ class MainActivity : Activity() {
             }
             addView(sections)
 
+            addView(SearchView(context).apply {
+                queryHint = "Search library"
+                isIconifiedByDefault = false
+                setOnQueryTextListener(
+                    object : SearchView.OnQueryTextListener {
+                        override fun onQueryTextSubmit(query: String?): Boolean {
+                            searchQuery = query.orEmpty().trim()
+                            renderLibrary()
+                            gridView.requestFocus()
+                            return true
+                        }
+
+                        override fun onQueryTextChange(newText: String?): Boolean {
+                            searchQuery = newText.orEmpty().trim()
+                            renderLibrary()
+                            return true
+                        }
+                    }
+                )
+            })
+
             val actions = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
 
@@ -90,6 +121,16 @@ class MainActivity : Activity() {
                 addView(Button(context).apply {
                     text = "Rescan"
                     setOnClickListener { scanLibrary() }
+                })
+
+                addView(Button(context).apply {
+                    text = "Sort"
+                    setOnClickListener { showMovieSort() }
+                })
+
+                addView(Button(context).apply {
+                    text = "Jump"
+                    setOnClickListener { showAlphabetJump() }
                 })
 
                 addView(Button(context).apply {
@@ -417,11 +458,25 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun movieCards(): List<LibraryCard> =
-        library
+    private fun movieCards(): List<LibraryCard> {
+        val matching = library
             .filter { it.kind == MediaRecord.Kind.MOVIE }
-            .sortedBy { it.displayTitle.lowercase() }
-            .map { item ->
+            .filter { matchesSearch(it) }
+
+        val sorted = when (movieSort) {
+            MovieSort.TITLE -> matching.sortedBy { it.displayTitle.lowercase() }
+            MovieSort.RECENT -> matching.sortedByDescending { it.addedAt }
+            MovieSort.YEAR -> matching.sortedWith(
+                compareByDescending<MediaRecord> { it.year ?: Int.MIN_VALUE }
+                    .thenBy { it.displayTitle.lowercase() }
+            )
+            MovieSort.UNWATCHED -> matching.sortedWith(
+                compareBy<MediaRecord> { store.isWatched(it.uri) }
+                    .thenBy { it.displayTitle.lowercase() }
+            )
+        }
+
+        return sorted.map { item ->
                 LibraryCard(
                     key = item.uri,
                     title = item.displayTitle,
@@ -433,10 +488,56 @@ class MainActivity : Activity() {
                     items = listOf(item),
                 )
             }
+    }
+
+    private fun matchesSearch(item: MediaRecord): Boolean {
+        if (searchQuery.isBlank()) return true
+        val query = searchQuery.lowercase()
+        return item.displayTitle.lowercase().contains(query) ||
+            item.fileName.lowercase().contains(query) ||
+            item.episodeTitle?.lowercase()?.contains(query) == true
+    }
+
+    private fun showMovieSort() {
+        val labels = arrayOf("Title A–Z", "Recently added", "Year", "Unwatched first")
+        AlertDialog.Builder(this)
+            .setTitle("Sort movies")
+            .setSingleChoiceItems(labels, movieSort.ordinal) { dialog, which ->
+                movieSort = MovieSort.entries[which]
+                renderLibrary()
+                dialog.dismiss()
+                gridView.requestFocus()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAlphabetJump() {
+        val labels = (listOf("#") + ('A'..'Z').map(Char::toString)).toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Jump to title")
+            .setItems(labels) { _, which ->
+                val target = labels[which]
+                val index = visibleCards.indexOfFirst { card ->
+                    val first = card.title.trim().firstOrNull()?.uppercaseChar()
+                    if (target == "#") first == null || first !in 'A'..'Z'
+                    else first?.toString() == target
+                }
+                if (index >= 0) {
+                    gridView.setSelection(index)
+                    gridView.requestFocus()
+                } else {
+                    Toast.makeText(this, "No titles under " + target, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     private fun tvCards(): List<LibraryCard> =
         library
             .filter { it.kind == MediaRecord.Kind.TV_EPISODE }
+            .filter { matchesSearch(it) }
             .groupBy { item ->
                 item.metadataId?.let { "tmdb:$it" }
                     ?: "title:" + item.title.lowercase()
