@@ -22,6 +22,7 @@ import android.widget.TextView
 import android.widget.Toast
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.MediaScanner
+import org.simplemediacentre.library.PlaybackRules
 import org.simplemediacentre.metadata.LibraryEnricher
 import org.simplemediacentre.metadata.MediaMetadata
 import org.simplemediacentre.metadata.TmdbMetadataProvider
@@ -1442,7 +1443,7 @@ class MainActivity : Activity() {
             .filter { matchesSearch(it) }
             .mapNotNull { item ->
                 val position = store.playbackPosition(item.uri)
-                if (position <= 30_000L || store.isWatched(item.uri)) {
+                if (!PlaybackRules.canResume(position, store.isWatched(item.uri))) {
                     null
                 } else {
                     LibraryCard(
@@ -1486,7 +1487,7 @@ class MainActivity : Activity() {
         val ordered = card.items.sortedBy { it.displayTitle.lowercase() }
         val labels = ordered.map { item ->
             val position = store.playbackPosition(item.uri)
-            val resume = if (position > 30_000L && !store.isWatched(item.uri)) {
+            val resume = if (PlaybackRules.canResume(position, store.isWatched(item.uri))) {
                 " • Resume " + formatPosition(position)
             } else {
                 ""
@@ -1551,7 +1552,7 @@ class MainActivity : Activity() {
         )
         val labels = ordered.map { episode ->
             val position = store.playbackPosition(episode.uri)
-            val resume = if (position > 30_000L && !store.isWatched(episode.uri)) {
+            val resume = if (PlaybackRules.canResume(position, store.isWatched(episode.uri))) {
                 " • Resume " + formatPosition(position)
             } else {
                 ""
@@ -1614,7 +1615,7 @@ class MainActivity : Activity() {
             .setMessage(summary)
             .setPositiveButton(if (card.items.size == 1) {
                 val position = store.playbackPosition(card.items.first().uri)
-                if (position > 30_000L && !store.isWatched(card.items.first().uri)) "Resume" else "Play"
+                if (PlaybackRules.canResume(position, store.isWatched(card.items.first()).uri)) "Resume" else "Play"
             } else {
                 "Episodes"
             }) { _, _ ->
@@ -1681,7 +1682,7 @@ class MainActivity : Activity() {
         watched: Boolean,
     ) {
         val item = card.items.first()
-        val canRestart = store.playbackPosition(item.uri) > 30_000L
+        val canRestart = PlaybackRules.canResume(store.playbackPosition(item.uri), store.isWatched(item.uri))
         val labels = buildList {
             add(if (watched) "Mark unwatched" else "Mark watched")
             if (canRestart) add("Restart from beginning")
