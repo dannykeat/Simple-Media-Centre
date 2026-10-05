@@ -1550,9 +1550,17 @@ class MainActivity : Activity() {
             .setPositiveButton(
                 if (position > 30_000L && !watched) "Resume" else "Play"
             ) { _, _ -> play(episode) }
-            .setNeutralButton(if (watched) "Mark unwatched" else "Mark watched") { _, _ ->
-                store.setWatched(episode.uri, !watched)
-                renderLibrary()
+            .setNeutralButton("Actions") { _, _ ->
+                showSingleItemActions(
+                    LibraryCard(
+                        key = episode.uri,
+                        title = episode.episodeDisplayTitle,
+                        subtitle = "",
+                        posterPath = episode.posterPath,
+                        items = listOf(episode),
+                    ),
+                    watched,
+                )
             }
             .setNegativeButton("Close", null)
             .show()
@@ -1647,7 +1655,7 @@ class MainActivity : Activity() {
         val labels = buildList {
             add(if (watched) "Mark unwatched" else "Mark watched")
             if (canRestart) add("Restart from beginning")
-            if (store.tmdbToken().isNotBlank() && item.kind != MediaRecord.Kind.VIDEO) {
+            if (store.tmdbToken().isNotBlank() && item.kind == MediaRecord.Kind.MOVIE) {
                 add("Fix match")
             }
         }.toTypedArray()
