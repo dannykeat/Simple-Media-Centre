@@ -29,6 +29,7 @@ import androidx.media3.ui.PlayerView
 import org.simplemediacentre.library.LibraryAlgorithms
 import org.simplemediacentre.library.LibraryStore
 import org.simplemediacentre.library.PlaybackRules
+import org.simplemediacentre.library.TimeFormatter
 import org.simplemediacentre.model.MediaRecord
 import java.util.Locale
 
@@ -308,7 +309,7 @@ class PlayerActivity : Activity() {
 
         val duration = exoPlayer.duration
         if (duration > 0L) {
-            lines += "Duration: " + formatDuration(duration)
+            lines += "Duration: " + TimeFormatter.format(duration)
         }
 
         AlertDialog.Builder(this)
@@ -318,7 +319,7 @@ class PlayerActivity : Activity() {
             .show()
     }
 
-    private fun formatDuration(durationMs: Long): String {
+    private fun TimeFormatter.format(durationMs: Long): String {
         val totalSeconds = durationMs / 1000
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
