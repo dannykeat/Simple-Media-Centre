@@ -564,12 +564,15 @@ class MainActivity : Activity() {
 
     private fun sourceLabel(sourceId: String): String =
         store.sourceDisplayName(sourceId)
+            ?: sourceId
+                .takeIf { it.contains('|') }
+                ?.substringAfterLast('|')
+                ?.takeIf { it.isNotBlank() }
             ?: runCatching {
                 android.net.Uri.parse(sourceId).lastPathSegment
                     ?.substringAfterLast(':')
                     ?.takeIf { it.isNotBlank() }
             }.getOrNull()
-            ?: sourceId.substringAfterLast('|').takeIf { it.isNotBlank() }
             ?: "Media folder"
 
     private fun renameSource(source: ConfiguredSource) {
