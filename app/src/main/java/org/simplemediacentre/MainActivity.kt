@@ -670,16 +670,40 @@ class MainActivity : Activity() {
             val token = store.tmdbToken()
             if (token.isBlank()) return@Thread
 
-            runOnUiThread {
-                progressView.visibility = View.VISIBLE
-                statusView.text = "Library ready • matching unmatched Movies and TV with TMDB…"
+            val provider = TmdbMetadataProvider(token)
+            val enricher = LibraryEnricher(provider)
+            val working = scanned.toMutableList()
+            val indexesByUri = working.indices.associateBy { working[it].uri }
+            val candidates = working.filter {
+                it.kind == MediaRecord.Kind.MOVIE || it.kind == MediaRecord.Kind.TV_EPISODE
             }
 
-            val enriched = LibraryEnricher(TmdbMetadataProvider(token)).enrich(scanned)
-            store.saveLibrary(enriched)
+            runOnUiThread {
+                progressView.visibility = View.VISIBLE
+                statusView.text = "Library ready • matching metadata…"
+            }
+
+            candidates.chunked(METADATA_BATCH_SIZE).forEachIndexed { batchIndex, batch ->
+                val enrichedBatch = enricher.enrich(batch)
+                enrichedBatch.forEach { item ->
+                    indexesByUri[item.uri]?.let { index -> working[index] = item }
+                }
+
+                store.saveLibrary(working)
+
+                val completed = minOf(
+                    (batchIndex + 1) * METADATA_BATCH_SIZE,
+                    candidates.size,
+                )
+                runOnUiThread {
+                    library = working.toList()
+                    statusView.text =
+                        "Library ready • metadata " + completed + "/" + candidates.size
+                    renderLibrary()
+                }
+            }
 
             runOnUiThread {
-                library = enriched
                 progressView.visibility = View.GONE
                 renderLibrary()
             }
@@ -1373,5 +1397,6 @@ class MainActivity : Activity() {
         const val REQUEST_MEDIA_FOLDER = 1001
         const val REQUEST_VIDEO_PERMISSION = 1002
         const val MEDIASTORE_LEGACY_EXTERNAL = "external"
+        const val METADATA_BATCH_SIZE = 20
     }
 }
