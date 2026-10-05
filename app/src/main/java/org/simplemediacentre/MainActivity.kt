@@ -1833,6 +1833,35 @@ class MainActivity : Activity() {
         )
     }
 
+    @Deprecated("Uses the Activity back callback for compatibility with the current MVP.")
+    override fun onBackPressed() {
+        if (searchQuery.isNotBlank()) {
+            searchQuery = ""
+            renderLibrary()
+            gridView.requestFocus()
+            return
+        }
+
+        if (section == Section.MOVIES &&
+            (movieFilter != MovieFilter.ALL || movieDecade != null || movieGenre != null)
+        ) {
+            movieFilter = MovieFilter.ALL
+            movieDecade = null
+            movieGenre = null
+            renderLibrary()
+            gridView.setSelection(0)
+            gridView.requestFocus()
+            return
+        }
+
+        if (section != Section.HOME) {
+            openSection(Section.HOME)
+            return
+        }
+
+        super.onBackPressed()
+    }
+
     override fun onResume() {
         super.onResume()
         if (::gridView.isInitialized) renderLibrary()
