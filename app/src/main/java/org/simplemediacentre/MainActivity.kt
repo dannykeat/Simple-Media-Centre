@@ -1106,7 +1106,13 @@ class MainActivity : Activity() {
         val query = searchQuery.lowercase()
         return item.displayTitle.lowercase().contains(query) ||
             item.fileName.lowercase().contains(query) ||
-            item.episodeTitle?.lowercase()?.contains(query) == true
+            item.episodeTitle?.lowercase()?.contains(query) == true ||
+            item.relativePath?.lowercase()?.contains(query) == true ||
+            item.genres.any { it.lowercase().contains(query) } ||
+            item.sourceId
+                ?.let(store::sourceDisplayName)
+                ?.lowercase()
+                ?.contains(query) == true
     }
 
     private fun showBrowseOptions() {
