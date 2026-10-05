@@ -21,6 +21,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import org.simplemediacentre.library.LibraryStore
+import org.simplemediacentre.library.MediaIdentity
 import org.simplemediacentre.library.MediaScanner
 import org.simplemediacentre.library.PlaybackRules
 import org.simplemediacentre.metadata.LibraryEnricher
@@ -805,7 +806,10 @@ class MainActivity : Activity() {
         statusView.text = "Scanning " + sourceCount + " media source" + suffix + "…"
 
         Thread {
-            val previous = store.loadLibrary().associateBy { it.uri }
+            val previousItems = store.loadLibrary()
+            val previous = previousItems.associateBy { it.uri }
+            val previousBySignature = MediaIdentity.uniquePreviousBySignature(previousItems)
+            val claimedPreviousUris = mutableSetOf<String>()
             val now = System.currentTimeMillis()
             val availableVolumes = if (hasVideoReadPermission()) {
                 availableMediaStoreVolumes()
@@ -834,7 +838,22 @@ class MainActivity : Activity() {
                     }
                 },
             ).map { item ->
-                carryCachedMetadata(item, previous[item.uri], now)
+                val direct = previous[item.uri]
+                val moved = if (direct == null) {
+                    MediaIdentity.signature(item)
+                        ?.let(previousBySignature::get)
+                        ?.takeIf { it.uri !in claimedPreviousUris }
+                } else {
+                    null
+                }
+                val prior = direct ?: moved
+                if (prior != null) {
+                    claimedPreviousUris += prior.uri
+                    if (prior.uri != item.uri) {
+                        store.migratePlaybackState(prior.uri, item.uri)
+                    }
+                }
+                carryCachedMetadata(item, prior, now)
             }
             val cachedUnavailable = previous.values.filter { item ->
                 item.sourceId
