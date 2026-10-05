@@ -17,6 +17,26 @@ class FilenameParserTest {
     }
 
     @Test
+    fun parsesXStyleTvEpisode() {
+        val parsed = FilenameParser.parse("Black.Books.1x02.1080p.mkv")
+
+        assertEquals("Black Books", parsed.title)
+        assertEquals(MediaRecord.Kind.TV_EPISODE, parsed.kind)
+        assertEquals(1, parsed.season)
+        assertEquals(2, parsed.episode)
+    }
+
+    @Test
+    fun parsesSeasonEpisodeWords() {
+        val parsed = FilenameParser.parse("Bluey Season 2 Episode 7.mp4")
+
+        assertEquals("Bluey", parsed.title)
+        assertEquals(MediaRecord.Kind.TV_EPISODE, parsed.kind)
+        assertEquals(2, parsed.season)
+        assertEquals(7, parsed.episode)
+    }
+
+    @Test
     fun parsesMovieWithYear() {
         val parsed = FilenameParser.parse("Alien (1979).1080p.BluRay.mkv")
 
