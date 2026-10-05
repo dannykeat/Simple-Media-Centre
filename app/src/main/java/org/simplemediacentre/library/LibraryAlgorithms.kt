@@ -31,6 +31,41 @@ object LibraryAlgorithms {
         return ordered[index + 1]
     }
 
+    fun continueItems(
+        items: Collection<MediaRecord>,
+        playbackPosition: (String) -> Long,
+        isWatched: (String) -> Boolean,
+        lastPlayed: (String) -> Long,
+        matchesSearch: (MediaRecord) -> Boolean = { true },
+    ): List<MediaRecord> =
+        items
+            .asSequence()
+            .filter(matchesSearch)
+            .filter { item ->
+                PlaybackRules.canResume(
+                    playbackPosition(item.uri),
+                    isWatched(item.uri),
+                )
+            }
+            .sortedWith(
+                compareByDescending<MediaRecord> { lastPlayed(it.uri) }
+                    .thenBy { it.displayTitle.lowercase() }
+            )
+            .toList()
+
+    fun recentItems(
+        items: Collection<MediaRecord>,
+        limit: Int = 30,
+        matchesSearch: (MediaRecord) -> Boolean = { true },
+    ): List<MediaRecord> =
+        items
+            .asSequence()
+            .filter { it.addedAt > 0L }
+            .filter(matchesSearch)
+            .sortedByDescending { it.addedAt }
+            .take(limit)
+            .toList()
+
     fun topFolder(relativePath: String?): String? =
         relativePath
             ?.trim('/')
