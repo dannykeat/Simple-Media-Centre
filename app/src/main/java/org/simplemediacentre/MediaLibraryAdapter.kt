@@ -37,7 +37,12 @@ class MediaLibraryAdapter(
 
     private fun createCard(): LinearLayout {
         val density = context.resources.displayMetrics.density
-        val padding = (10 * density).toInt()
+        val tvScale = context.resources.configuration.smallestScreenWidthDp >= 600
+        val padding = ((if (tvScale) 12 else 10) * density).toInt()
+        val posterHeight = ((if (tvScale) 260 else 220) * density).toInt()
+        val minimumCardWidth = ((if (tvScale) 180 else 150) * density).toInt()
+        val titleSize = if (tvScale) 18f else 16f
+        val subtitleSize = if (tvScale) 14f else 13f
 
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -45,7 +50,7 @@ class MediaLibraryAdapter(
             isClickable = true
             background = focusBackground()
             setPadding(padding, padding, padding, padding)
-            minimumWidth = (150 * density).toInt()
+            minimumWidth = minimumCardWidth
 
             addView(
                 ImageView(context).apply {
@@ -55,13 +60,13 @@ class MediaLibraryAdapter(
                 },
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    (220 * density).toInt(),
+                    posterHeight,
                 )
             )
 
             addView(TextView(context).apply {
                 tag = TAG_TITLE
-                textSize = 16f
+                textSize = titleSize
                 setTextColor(Color.WHITE)
                 maxLines = 2
                 setPadding(0, padding, 0, 0)
@@ -69,7 +74,7 @@ class MediaLibraryAdapter(
 
             addView(TextView(context).apply {
                 tag = TAG_SUBTITLE
-                textSize = 13f
+                textSize = subtitleSize
                 setTextColor(Color.LTGRAY)
                 maxLines = 2
             })
