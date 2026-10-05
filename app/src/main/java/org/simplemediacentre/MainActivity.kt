@@ -660,7 +660,10 @@ class MainActivity : Activity() {
                         0 -> showTmdbSetup()
                         1 -> refreshMetadata()
                         2 -> {
+                            ++metadataGeneration
                             store.saveTmdbToken("")
+                            progressView.visibility = View.GONE
+                            renderLibrary()
                             Toast.makeText(this, "Online metadata disabled.", Toast.LENGTH_SHORT).show()
                         }
                         3 -> clearCachedMetadata()
@@ -695,6 +698,8 @@ class MainActivity : Activity() {
     }
 
     private fun clearCachedMetadata() {
+        ++metadataGeneration
+        progressView.visibility = View.GONE
         val cleared = library.map { item ->
             item.copy(
                 metadataId = null,
@@ -731,6 +736,8 @@ class MainActivity : Activity() {
                 val token = input.text.toString().trim()
                 store.saveTmdbToken(token)
                 if (token.isBlank()) {
+                    ++metadataGeneration
+                    progressView.visibility = View.GONE
                     renderLibrary()
                     Toast.makeText(this, "Online metadata disabled.", Toast.LENGTH_SHORT).show()
                 } else {
