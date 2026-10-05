@@ -764,7 +764,9 @@ class MainActivity : Activity() {
             it.kind == MediaRecord.Kind.VIDEO || it.kind == MediaRecord.Kind.UNKNOWN
         }
         val matchedCount = library.count { it.metadataId != null }
-        val sourceCount = store.roots().size + store.mediaStoreVolumes().size
+        val sourceCount = store.roots().size + store.mediaStoreVolumes().sumOf { volume ->
+            store.mediaStoreFolders(volume).size.takeIf { it > 0 } ?: 1
+        }
 
         AlertDialog.Builder(this)
             .setTitle("Simple Media Centre")
