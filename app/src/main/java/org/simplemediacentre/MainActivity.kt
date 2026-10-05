@@ -737,7 +737,42 @@ class MainActivity : Activity() {
     }
 
     private fun showEpisodePicker(card: LibraryCard) {
-        val labels = card.items.map { episode ->
+        val seasons = card.items.groupBy { it.season ?: 0 }.toSortedMap()
+        if (seasons.size <= 1) {
+            showSeasonEpisodes(card.title, seasons.values.firstOrNull().orEmpty())
+            return
+        }
+
+        val labels = seasons.map { (season, episodes) ->
+            val watched = episodes.count { store.isWatched(it.uri) }
+            val name = if (season > 0) "Season " + season else "Other episodes"
+            name + " • " + episodes.size + " episode" +
+                (if (episodes.size == 1) "" else "s") +
+                (if (watched > 0) " • " + watched + " watched" else "")
+        }.toTypedArray()
+        val entries = seasons.entries.toList()
+
+        AlertDialog.Builder(this)
+            .setTitle(card.title)
+            .setItems(labels) { _, which ->
+                val entry = entries[which]
+                val seasonName = if (entry.key > 0) {
+                    card.title + " — Season " + entry.key
+                } else {
+                    card.title
+                }
+                showSeasonEpisodes(seasonName, entry.value)
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun showSeasonEpisodes(title: String, episodes: List<MediaRecord>) {
+        val ordered = episodes.sortedWith(
+            compareBy<MediaRecord> { it.episode ?: Int.MAX_VALUE }
+                .thenBy { it.fileName.lowercase() }
+        )
+        val labels = ordered.map { episode ->
             val position = store.playbackPosition(episode.uri)
             val resume = if (position > 30_000L && !store.isWatched(episode.uri)) {
                 " • Resume " + formatPosition(position)
@@ -749,11 +784,9 @@ class MainActivity : Activity() {
         }.toTypedArray()
 
         AlertDialog.Builder(this)
-            .setTitle(card.title)
-            .setItems(labels) { _, which ->
-                showEpisodeDetails(card.items[which])
-            }
-            .setNegativeButton("Close", null)
+            .setTitle(title)
+            .setItems(labels) { _, which -> showEpisodeDetails(ordered[which]) }
+            .setNegativeButton("Back", null)
             .show()
     }
 
