@@ -41,6 +41,7 @@ class PlayerActivity : Activity() {
     private lateinit var playerView: PlayerView
     private lateinit var audioButton: Button
     private lateinit var subtitleButton: Button
+    private lateinit var infoButton: Button
     private lateinit var store: LibraryStore
     private lateinit var mediaUri: String
 
@@ -185,11 +186,18 @@ class PlayerActivity : Activity() {
             setOnClickListener { showSubtitleTracks() }
         }
 
+        infoButton = Button(this).apply {
+            text = "Info"
+            isEnabled = false
+            setOnClickListener { showPlaybackInfo() }
+        }
+
         val trackControls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.argb(150, 0, 0, 0))
             addView(audioButton)
             addView(subtitleButton)
+            addView(infoButton)
         }
 
         return FrameLayout(this).apply {
@@ -210,6 +218,83 @@ class PlayerActivity : Activity() {
     private fun updateTrackButtons(tracks: Tracks) {
         audioButton.isEnabled = trackChoices(tracks, C.TRACK_TYPE_AUDIO).isNotEmpty()
         subtitleButton.isEnabled = trackChoices(tracks, C.TRACK_TYPE_TEXT).isNotEmpty()
+        infoButton.isEnabled = tracks.groups.isNotEmpty()
+    }
+
+    private fun showPlaybackInfo() {
+        val exoPlayer = player ?: return
+        val lines = mutableListOf<String>()
+
+        exoPlayer.currentTracks.groups.forEach { group ->
+            for (trackIndex in 0 until group.length) {
+                if (!group.isTrackSelected(trackIndex)) continue
+                val format = group.getTrackFormat(trackIndex)
+                when (group.type) {
+                    C.TRACK_TYPE_VIDEO -> {
+                        val resolution = if (format.width > 0 && format.height > 0) {
+                            format.width.toString() + "×" + format.height
+                        } else {
+                            null
+                        }
+                        val codec = format.codecs
+                            ?: format.sampleMimeType
+                            ?: "unknown codec"
+                        lines += listOfNotNull(
+                            "Video: " + codec,
+                            resolution,
+                        ).joinToString(" • ")
+                    }
+                    C.TRACK_TYPE_AUDIO -> {
+                        val codec = format.codecs
+                            ?: format.sampleMimeType
+                            ?: "unknown codec"
+                        val channels = if (format.channelCount > 0) {
+                            format.channelCount.toString() + " ch"
+                        } else {
+                            null
+                        }
+                        val rate = if (format.sampleRate > 0) {
+                            format.sampleRate.toString() + " Hz"
+                        } else {
+                            null
+                        }
+                        lines += listOfNotNull(
+                            "Audio: " + codec,
+                            channels,
+                            rate,
+                        ).joinToString(" • ")
+                    }
+                    C.TRACK_TYPE_TEXT -> {
+                        lines += "Subtitles: " + trackLabel(format, trackIndex)
+                    }
+                }
+            }
+        }
+
+        val duration = exoPlayer.duration
+        if (duration > 0L) {
+            lines += "Duration: " + formatDuration(duration)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(title ?: "Playback info")
+            .setMessage(lines.ifEmpty { listOf("Track information is not available yet.") }.joinToString("\n"))
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun formatDuration(durationMs: Long): String {
+        val totalSeconds = durationMs / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            hours.toString() + ":" +
+                minutes.toString().padStart(2, '0') + ":" +
+                seconds.toString().padStart(2, '0')
+        } else {
+            minutes.toString() + ":" + seconds.toString().padStart(2, '0')
+        }
     }
 
     private fun showAudioTracks() {
