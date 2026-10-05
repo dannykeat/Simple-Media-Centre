@@ -58,6 +58,14 @@ class MainActivity : Activity() {
         UNWATCHED,
     }
 
+    private data class ConfiguredSource(
+        val kind: String,
+        val id: String,
+        val label: String,
+        val volumeName: String? = null,
+        val folder: String? = null,
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = LibraryStore(this)
@@ -456,32 +464,58 @@ class MainActivity : Activity() {
     }
 
     private fun showSources() {
-        val roots = store.roots().sorted()
-        val volumes = store.mediaStoreVolumes().sorted()
-        val sources = roots.map { Triple("folder", it, sourceLabel(it)) } +
-            volumes.map { Triple("volume", it, it) }
+        val sources = buildList {
+            store.roots().sorted().forEach { root ->
+                add(ConfiguredSource("folder", root, sourceLabel(root)))
+            }
+
+            store.mediaStoreVolumes().sorted().forEach { volume ->
+                val folders = store.mediaStoreFolders(volume).sorted()
+                if (folders.isEmpty()) {
+                    add(ConfiguredSource("volume", volume, volume, volumeName = volume))
+                } else {
+                    folders.forEach { folder ->
+                        add(
+                            ConfiguredSource(
+                                kind = "mediafolder",
+                                id = store.mediaStoreFolderSourceId(volume, folder),
+                                label = folder,
+                                volumeName = volume,
+                                folder = folder,
+                            )
+                        )
+                    }
+                }
+            }
+        }
 
         if (sources.isEmpty()) {
             Toast.makeText(this, "No media sources configured.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val labels = sources.map { (_, id, label) ->
-            label + " • " + store.sourceType(id).label
+        val labels = sources.map { source ->
+            source.label + " • " + store.sourceType(source.id).label
         }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle("Media sources")
             .setItems(labels) { _, which ->
-                val (kind, id, label) = sources[which]
-                val actions = arrayOf("Change type", "Remove source")
+                val source = sources[which]
+                val actions = if (source.kind == "mediafolder" || source.kind == "volume") {
+                    arrayOf("Change type", "Choose storage folders", "Remove source")
+                } else {
+                    arrayOf("Change type", "Remove source")
+                }
+
                 AlertDialog.Builder(this)
-                    .setTitle(label)
+                    .setTitle(source.label)
                     .setItems(actions) { _, action ->
-                        if (action == 0) {
-                            chooseSourceType(id)
-                        } else {
-                            confirmRemoveSource(kind, id, label)
+                        when {
+                            action == 0 -> chooseSourceType(source.id)
+                            source.kind in setOf("mediafolder", "volume") && action == 1 ->
+                                chooseMediaStoreFolders(source.volumeName ?: source.id)
+                            else -> confirmRemoveSource(source)
                         }
                     }
                     .setNegativeButton("Close", null)
@@ -499,13 +533,25 @@ class MainActivity : Activity() {
                 ?.takeIf { it.isNotBlank() }
         }.getOrNull() ?: "Media folder"
 
-    private fun confirmRemoveSource(kind: String, id: String, label: String) {
+    private fun confirmRemoveSource(source: ConfiguredSource) {
         AlertDialog.Builder(this)
             .setTitle("Remove source?")
-            .setMessage("Stop scanning " + label + "? Files are not deleted.")
+            .setMessage("Stop scanning " + source.label + "? Files are not deleted.")
             .setPositiveButton("Remove") { _, _ ->
-                if (kind == "folder") store.removeRoot(id)
-                else store.removeMediaStoreVolume(id)
+                when (source.kind) {
+                    "folder" -> store.removeRoot(source.id)
+                    "volume" -> store.removeMediaStoreVolume(source.id)
+                    "mediafolder" -> {
+                        val volume = source.volumeName ?: return@setPositiveButton
+                        val folder = source.folder ?: return@setPositiveButton
+                        val remaining = store.mediaStoreFolders(volume) - folder
+                        if (remaining.isEmpty()) {
+                            store.removeMediaStoreVolume(volume)
+                        } else {
+                            store.setMediaStoreFolders(volume, remaining)
+                        }
+                    }
+                }
                 scanLibrary()
             }
             .setNegativeButton("Cancel", null)
