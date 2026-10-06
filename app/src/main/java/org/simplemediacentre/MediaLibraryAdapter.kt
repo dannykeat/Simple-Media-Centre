@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import coil3.load
 import coil3.request.crossfade
+import coil3.video.VideoFrameDecoder
 import org.simplemediacentre.model.MediaRecord
 
 class MediaLibraryAdapter(
@@ -36,7 +38,12 @@ class MediaLibraryAdapter(
 
     private fun createCard(): LinearLayout {
         val density = context.resources.displayMetrics.density
-        val padding = (10 * density).toInt()
+        val tvScale = context.resources.configuration.smallestScreenWidthDp >= 600
+        val padding = ((if (tvScale) 12 else 10) * density).toInt()
+        val posterHeight = ((if (tvScale) 260 else 220) * density).toInt()
+        val minimumCardWidth = ((if (tvScale) 180 else 150) * density).toInt()
+        val titleSize = if (tvScale) 18f else 16f
+        val subtitleSize = if (tvScale) 14f else 13f
 
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -44,7 +51,17 @@ class MediaLibraryAdapter(
             isClickable = true
             background = focusBackground()
             setPadding(padding, padding, padding, padding)
-            minimumWidth = (150 * density).toInt()
+            minimumWidth = minimumCardWidth
+            stateListAnimator = null
+            setOnFocusChangeListener { view, hasFocus ->
+                val scale = if (hasFocus) 1.05f else 1f
+                view.animate()
+                    .scaleX(scale)
+                    .scaleY(scale)
+                    .setDuration(120L)
+                    .start()
+                view.elevation = if (hasFocus) 12f * density else 0f
+            }
 
             addView(
                 ImageView(context).apply {
@@ -54,23 +71,25 @@ class MediaLibraryAdapter(
                 },
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    (220 * density).toInt(),
+                    posterHeight,
                 )
             )
 
             addView(TextView(context).apply {
                 tag = TAG_TITLE
-                textSize = 16f
+                textSize = titleSize
                 setTextColor(Color.WHITE)
                 maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
                 setPadding(0, padding, 0, 0)
             })
 
             addView(TextView(context).apply {
                 tag = TAG_SUBTITLE
-                textSize = 13f
+                textSize = subtitleSize
                 setTextColor(Color.LTGRAY)
                 maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
             })
         }
     }
@@ -83,9 +102,15 @@ class MediaLibraryAdapter(
         title.text = card.title
         subtitle.text = card.subtitle
 
-        val posterUrl = card.posterPath?.let { TMDB_IMAGE_BASE + it }
-        poster.load(posterUrl) {
+        val artwork = card.posterPath?.let { TMDB_IMAGE_BASE + it }
+            ?: card.items.firstOrNull()?.uri
+        poster.load(artwork) {
             crossfade(true)
+            if (card.posterPath == null && artwork != null) {
+                decoderFactory { result, options, _ ->
+                    VideoFrameDecoder(result.source, options)
+                }
+            }
         }
 
         view.contentDescription = if (card.subtitle.isBlank()) {

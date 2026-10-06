@@ -10,17 +10,26 @@ import java.nio.charset.StandardCharsets
 class TmdbMetadataProvider(
     private val bearerToken: String,
 ) : MetadataProvider {
-    override fun match(item: MediaRecord): MediaMetadata? =
-        search(item, limit = 1).firstOrNull()
+    private val genreCache = mutableMapOf<String, Map<Int, String>>()
+    override fun match(item: MediaRecord): MediaMetadata? {
+        val candidates = search(item, limit = 5)
+        if (candidates.isEmpty()) return null
+
+        val wanted = normalizedTitle(item.title)
+        candidates.firstOrNull { normalizedTitle(it.title) == wanted }?.let { return it }
+
+        return if (item.year != null) candidates.firstOrNull() else null
+    }
 
     override fun search(item: MediaRecord, limit: Int): List<MediaMetadata> {
-        if (bearerToken.isBlank() || item.kind == MediaRecord.Kind.UNKNOWN || limit <= 0) {
+        if (bearerToken.isBlank() || item.kind == MediaRecord.Kind.UNKNOWN || item.kind == MediaRecord.Kind.VIDEO || limit <= 0) {
             return emptyList()
         }
 
         val endpoint = when (item.kind) {
             MediaRecord.Kind.MOVIE -> "movie"
             MediaRecord.Kind.TV_EPISODE -> "tv"
+            MediaRecord.Kind.VIDEO,
             MediaRecord.Kind.UNKNOWN -> return emptyList()
         }
 
@@ -55,8 +64,52 @@ class TmdbMetadataProvider(
                         overview = result.optNullableString("overview"),
                         posterPath = result.optNullableString("poster_path"),
                         backdropPath = result.optNullableString("backdrop_path"),
+                        year = resultYear(endpoint, result),
+                        genres = genreNames(endpoint, result),
                     )
                 )
+            }
+        }
+    }
+
+    private fun normalizedTitle(value: String): String =
+        value.lowercase()
+            .filter(Char::isLetterOrDigit)
+
+    private fun resultYear(endpoint: String, item: JSONObject): Int? {
+        val key = if (endpoint == "tv") "first_air_date" else "release_date"
+        return item.optString(key)
+            .takeIf { it.length >= 4 }
+            ?.take(4)
+            ?.toIntOrNull()
+    }
+
+    private fun genreNames(endpoint: String, item: JSONObject): List<String> {
+        val ids = item.optJSONArray("genre_ids") ?: return emptyList()
+        val names = genreCache.getOrPut(endpoint) {
+            loadGenreMap(endpoint)
+        }
+        return buildList {
+            for (index in 0 until ids.length()) {
+                val id = ids.optInt(index)
+                names[id]?.let(::add)
+            }
+        }
+    }
+
+    private fun loadGenreMap(endpoint: String): Map<Int, String> {
+        val response = getJson(
+            "https://api.themoviedb.org/3/genre/" + endpoint +
+                "/list?language=en-AU"
+        ) ?: return emptyMap()
+
+        val genres = response.optJSONArray("genres") ?: return emptyMap()
+        return buildMap {
+            for (index in 0 until genres.length()) {
+                val genre = genres.optJSONObject(index) ?: continue
+                val id = genre.optInt("id")
+                val name = genre.optString("name").takeIf { it.isNotBlank() } ?: continue
+                if (id > 0) put(id, name)
             }
         }
     }

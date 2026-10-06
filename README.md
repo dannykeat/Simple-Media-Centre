@@ -9,16 +9,22 @@ The current working slice provides:
 - Android Storage Access Framework folder selection where a system picker is available;
 - Android TV fallback using MediaStore storage-volume discovery when no folder picker exists;
 - persisted SAF folders and selected MediaStore volumes, including supported USB/external drives;
+- per-source Movies / TV Shows / Videos / Mixed classification and source management;
+- MediaStore subfolder selection on Android TV devices whose system folder picker is unavailable, with independent content types per selected folder;
 - persisted access to selected folders;
 - recursive indexing of common video formats;
 - movie and TV-episode filename recognition, including movie years;
-- Movies, TV Shows and Continue Watching library sections;
-- TMDB poster artwork with local image caching;
+- Movies, TV Shows, Videos and Continue Watching library sections;
+- local library search, Movies/TV/Videos sorting, watched filtering, movie decade/genre filtering and A–Z jump navigation for large collections;
+- TV Show → Season → Episode browsing and folder-oriented Videos browsing;
+- friendly source names and cached-library preservation when a configured USB drive is temporarily disconnected;
+- persistent playback diagnostics with retry and external-player fallback;
+- TMDB poster artwork with local image caching and local video-frame thumbnail fallback when no poster is available;
 - TV episodes grouped under their show;
 - touch and D-pad focusable poster-grid navigation;
 - Media3/ExoPlayer playback with Android TV D-pad control support;
 - per-file resume position;
-- optional TMDB movie/TV-series matching using a user-supplied API Read Access Token;
+- optional TMDB movie/TV-series matching using a user-supplied API Read Access Token, with conservative automatic matching, genre categories, release-year enrichment, incremental progress, and local scan results available before metadata enrichment completes;
 - cached TMDB IDs, titles, summaries and artwork paths without storing credentials in Git.
 
 Local scanning and playback remain usable when metadata is disabled or unavailable.
@@ -60,3 +66,9 @@ gradle test lint assembleDebug
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md).
+
+## Hardware testing
+
+The current development test build is **0.4.0**. See [docs/HARDWARE_TESTING.md](docs/HARDWARE_TESTING.md) for the MECOOL acceptance checklist.
+
+The Android workflow supports manual runs and publishes `simple-media-centre-0.4.0-debug` as an APK artifact after a successful build.

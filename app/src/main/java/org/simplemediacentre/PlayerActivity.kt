@@ -2,6 +2,8 @@ package org.simplemediacentre
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -17,12 +19,18 @@ import android.widget.Toast
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import org.simplemediacentre.library.LibraryAlgorithms
 import org.simplemediacentre.library.LibraryStore
+import org.simplemediacentre.library.PlaybackRules
+import org.simplemediacentre.library.TimeFormatter
+import org.simplemediacentre.model.MediaRecord
 import java.util.Locale
 
 class PlayerActivity : Activity() {
@@ -37,8 +45,10 @@ class PlayerActivity : Activity() {
     private lateinit var playerView: PlayerView
     private lateinit var audioButton: Button
     private lateinit var subtitleButton: Button
+    private lateinit var infoButton: Button
     private lateinit var store: LibraryStore
     private lateinit var mediaUri: String
+    private var upNextShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +66,9 @@ class PlayerActivity : Activity() {
 
         setContentView(buildPlayerUi())
 
-        val exoPlayer = ExoPlayer.Builder(this).build()
+        val renderersFactory = DefaultRenderersFactory(this)
+            .setEnableDecoderFallback(true)
+        val exoPlayer = ExoPlayer.Builder(this, renderersFactory).build()
         player = exoPlayer
         playerView.player = exoPlayer
         playerView.requestFocus()
@@ -66,10 +78,33 @@ class PlayerActivity : Activity() {
                 override fun onTracksChanged(tracks: Tracks) {
                     updateTrackButtons(tracks)
                 }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    showPlaybackError(error)
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED && !upNextShown) {
+                        upNextShown = true
+                        store.setWatched(mediaUri, true)
+                        nextEpisode()?.let(::showUpNext)
+                    }
+                }
             }
         )
 
-        exoPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(mediaUri)))
+        val uri = Uri.parse(mediaUri)
+        if (!canReadMedia(uri)) {
+            showMediaAccessError(uri)
+            return
+        }
+
+        exoPlayer.setMediaItem(
+            MediaItem.Builder()
+                .setUri(uri)
+                .setMediaId(mediaUri)
+                .build()
+        )
         exoPlayer.prepare()
 
         val savedPosition = store.playbackPosition(mediaUri)
@@ -77,6 +112,89 @@ class PlayerActivity : Activity() {
             exoPlayer.seekTo(savedPosition)
         }
         exoPlayer.playWhenReady = true
+    }
+
+    private fun nextEpisode(): MediaRecord? {
+        val items = store.loadLibrary()
+        val current = items.firstOrNull { it.uri == mediaUri } ?: return null
+        return LibraryAlgorithms.nextEpisode(items, current)
+    }
+
+    private fun showUpNext(next: MediaRecord) {
+        AlertDialog.Builder(this)
+            .setTitle("Up next")
+            .setMessage(next.episodeDisplayTitle)
+            .setPositiveButton("Play next") { _, _ ->
+                store.savePlaybackPosition(mediaUri, 0L)
+                startActivity(
+                    Intent(this, PlayerActivity::class.java)
+                        .putExtra(EXTRA_URI, next.uri)
+                        .putExtra(EXTRA_TITLE, next.displayTitle)
+                )
+                finish()
+            }
+            .setNegativeButton("Done") { _, _ -> finish() }
+            .show()
+    }
+
+    private fun canReadMedia(uri: Uri): Boolean {
+        if (uri.scheme != "content") return true
+        return try {
+            contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
+        } catch (_: SecurityException) {
+            false
+        } catch (_: java.io.FileNotFoundException) {
+            false
+        }
+    }
+
+    private fun showMediaAccessError(uri: Uri) {
+        AlertDialog.Builder(this)
+            .setTitle("Cannot access this video")
+            .setMessage(
+                "Android no longer allows Simple Media Centre to read this file. " +
+                    "The source may have been disconnected or its permission may have changed."
+            )
+            .setPositiveButton("Other player") { _, _ -> openExternalPlayer() }
+            .setNegativeButton("Close") { _, _ -> finish() }
+            .show()
+    }
+
+    private fun showPlaybackError(error: PlaybackException) {
+        val detail = error.cause?.message?.takeIf { it.isNotBlank() }
+            ?: error.message
+            ?: "Unknown playback error"
+        val message = error.errorCodeName + "\n\n" + detail
+
+        AlertDialog.Builder(this)
+            .setTitle("Cannot play this video")
+            .setMessage(message)
+            .setPositiveButton("Retry") { _, _ ->
+                player?.prepare()
+                player?.playWhenReady = true
+                playerView.requestFocus()
+            }
+            .setNeutralButton("Other player") { _, _ -> openExternalPlayer() }
+            .setNegativeButton("Close") { _, _ -> finish() }
+            .show()
+    }
+
+    private fun openExternalPlayer() {
+        val uri = Uri.parse(mediaUri)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "video/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        try {
+            startActivity(Intent.createChooser(intent, "Open video with"))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(
+                this,
+                "No other video player is installed.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 
     private fun buildPlayerUi(): View {
@@ -104,11 +222,18 @@ class PlayerActivity : Activity() {
             setOnClickListener { showSubtitleTracks() }
         }
 
+        infoButton = Button(this).apply {
+            text = "Info"
+            isEnabled = false
+            setOnClickListener { showPlaybackInfo() }
+        }
+
         val trackControls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.argb(150, 0, 0, 0))
             addView(audioButton)
             addView(subtitleButton)
+            addView(infoButton)
         }
 
         return FrameLayout(this).apply {
@@ -129,6 +254,83 @@ class PlayerActivity : Activity() {
     private fun updateTrackButtons(tracks: Tracks) {
         audioButton.isEnabled = trackChoices(tracks, C.TRACK_TYPE_AUDIO).isNotEmpty()
         subtitleButton.isEnabled = trackChoices(tracks, C.TRACK_TYPE_TEXT).isNotEmpty()
+        infoButton.isEnabled = tracks.groups.isNotEmpty()
+    }
+
+    private fun showPlaybackInfo() {
+        val exoPlayer = player ?: return
+        val lines = mutableListOf<String>()
+
+        exoPlayer.currentTracks.groups.forEach { group ->
+            for (trackIndex in 0 until group.length) {
+                if (!group.isTrackSelected(trackIndex)) continue
+                val format = group.getTrackFormat(trackIndex)
+                when (group.type) {
+                    C.TRACK_TYPE_VIDEO -> {
+                        val resolution = if (format.width > 0 && format.height > 0) {
+                            format.width.toString() + "×" + format.height
+                        } else {
+                            null
+                        }
+                        val codec = format.codecs
+                            ?: format.sampleMimeType
+                            ?: "unknown codec"
+                        lines += listOfNotNull(
+                            "Video: " + codec,
+                            resolution,
+                        ).joinToString(" • ")
+                    }
+                    C.TRACK_TYPE_AUDIO -> {
+                        val codec = format.codecs
+                            ?: format.sampleMimeType
+                            ?: "unknown codec"
+                        val channels = if (format.channelCount > 0) {
+                            format.channelCount.toString() + " ch"
+                        } else {
+                            null
+                        }
+                        val rate = if (format.sampleRate > 0) {
+                            format.sampleRate.toString() + " Hz"
+                        } else {
+                            null
+                        }
+                        lines += listOfNotNull(
+                            "Audio: " + codec,
+                            channels,
+                            rate,
+                        ).joinToString(" • ")
+                    }
+                    C.TRACK_TYPE_TEXT -> {
+                        lines += "Subtitles: " + trackLabel(format, trackIndex)
+                    }
+                }
+            }
+        }
+
+        val duration = exoPlayer.duration
+        if (duration > 0L) {
+            lines += "Duration: " + TimeFormatter.format(duration)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(title ?: "Playback info")
+            .setMessage(lines.ifEmpty { listOf("Track information is not available yet.") }.joinToString("\n"))
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun TimeFormatter.format(durationMs: Long): String {
+        val totalSeconds = durationMs / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            hours.toString() + ":" +
+                minutes.toString().padStart(2, '0') + ":" +
+                seconds.toString().padStart(2, '0')
+        } else {
+            minutes.toString() + ":" + seconds.toString().padStart(2, '0')
+        }
     }
 
     private fun showAudioTracks() {
@@ -292,9 +494,12 @@ class PlayerActivity : Activity() {
         player?.let { currentPlayer ->
             val duration = currentPlayer.duration
             val current = currentPlayer.currentPosition
-            val finished = duration > 0 && current >= duration - 60_000L
+            val finished = PlaybackRules.isFinished(current, duration)
             val positionToSave = if (finished) 0L else current
             store.savePlaybackPosition(mediaUri, positionToSave)
+            if (current > 0L) {
+                store.markPlayed(mediaUri)
+            }
             if (finished) {
                 store.setWatched(mediaUri, true)
             }

@@ -5,16 +5,20 @@ data class MediaRecord(
     val fileName: String,
     val title: String,
     val kind: Kind,
+    val sourceId: String? = null,
+    val relativePath: String? = null,
     val year: Int? = null,
     val season: Int? = null,
     val episode: Int? = null,
     val modifiedAt: Long = 0L,
+    val sizeBytes: Long = 0L,
     val addedAt: Long = 0L,
     val metadataId: Int? = null,
     val metadataTitle: String? = null,
     val overview: String? = null,
     val posterPath: String? = null,
     val backdropPath: String? = null,
+    val genres: List<String> = emptyList(),
     val episodeMetadataId: Int? = null,
     val episodeTitle: String? = null,
     val episodeOverview: String? = null,
@@ -22,6 +26,7 @@ data class MediaRecord(
     enum class Kind {
         MOVIE,
         TV_EPISODE,
+        VIDEO,
         UNKNOWN,
     }
 
