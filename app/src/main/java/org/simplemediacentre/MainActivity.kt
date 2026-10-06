@@ -305,7 +305,8 @@ class MainActivity : Activity() {
 
     private fun isTelevisionDevice(): Boolean {
         val uiModeManager = getSystemService(UiModeManager::class.java)
-        return uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+        return uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
     }
 
     private fun chooseMediaStoreVolume() {
