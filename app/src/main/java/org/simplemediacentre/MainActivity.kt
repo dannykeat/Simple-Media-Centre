@@ -3,9 +3,11 @@ package org.simplemediacentre
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.UiModeManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -271,6 +273,15 @@ class MainActivity : Activity() {
 
     @Suppress("DEPRECATION")
     private fun chooseMediaFolder() {
+        // Android TV firmware commonly advertises ACTION_OPEN_DOCUMENT_TREE even when
+        // its document picker cannot actually open. The MediaStore fallback is both
+        // more reliable on TV and now supports selecting individual storage folders,
+        // so do not invoke the broken system picker there.
+        if (isTelevisionDevice()) {
+            chooseMediaStoreVolume()
+            return
+        }
+
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             addFlags(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or
@@ -283,11 +294,18 @@ class MainActivity : Activity() {
                 startActivityForResult(intent, REQUEST_MEDIA_FOLDER)
                 return
             } catch (_: ActivityNotFoundException) {
-                // Some TV firmware reports a picker handler that cannot actually launch.
+                // Fall through to the MediaStore source picker.
+            } catch (_: SecurityException) {
+                // Broken vendor pickers can fail despite resolving successfully.
             }
         }
 
         chooseMediaStoreVolume()
+    }
+
+    private fun isTelevisionDevice(): Boolean {
+        val uiModeManager = getSystemService(UiModeManager::class.java)
+        return uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
     }
 
     private fun chooseMediaStoreVolume() {
